@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Project-specific (user data stored in user dir, not here)
+*.db
+*.log
+
+# Work tools
+.workbuddy/
+.codebuddy/
+
+# AI context files (not for public repo)
+PROJECT_HANDOFF.md
+main_patch.txt
+
+# Packaging
+*.tar.gz
+*.zip
+
+# Screenshots / temp assets
+screenshot_*.png

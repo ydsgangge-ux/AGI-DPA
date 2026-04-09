@@ -1,0 +1,41 @@
+# AGI Cognitive Assistant - Core Dependencies
+# Install: pip install -r requirements.txt
+
+# Desktop UI framework
+PyQt6>=6.6.0
+
+# Screenshot + OCR
+Pillow>=10.0.0
+pyautogui>=0.9.54
+pytesseract>=0.3.10
+
+# Global hotkeys
+keyboard>=0.13.5
+
+# HTTP requests (LLM API)
+requests>=2.31.0
+
+# Office tools (Word/Excel/PPT/PDF)
+python-docx>=1.1.0
+openpyxl>=3.1.0
+python-pptx>=0.6.23
+reportlab>=4.1.0
+pdfplumber>=0.10.0
+
+# Finance tools
+yfinance>=0.2.31
+
+# Voice synthesis
+edge-tts>=6.1.0
+
+# News extraction
+newspaper3k>=0.2.8
+lxml_html_clean>=0.1.0
+
+# Mobile web server (手机端 Web 服务)
+fastapi>=0.110.0
+uvicorn>=0.27.0
+PyJWT>=2.8.0
+
+# News tools (optional - requires API key from newsapi.org)
+# newsapi-python>=0.2.7
