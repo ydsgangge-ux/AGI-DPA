@@ -23,7 +23,8 @@
 - **A/B 双层架构** — A 层（意识层）拥有人格、情感、判断力；B 层（执行层）调用 LLM + 工具
 - **分层记忆系统** — SQLite + 向量检索，三级存储（大纲/细纲/片段）+ 关联网络 + 两阶段检索
 - **用户画像** — 逐步积累性格特征，检测异常行为，身份验证
-- **27 个内置工具** — 文件操作、系统控制、网页搜索、浏览器自动化、OCR、编程智能体、Office 文件、股票、新闻
+- **28 个内置工具** — 文件操作、系统控制、网页搜索、浏览器自动化、OCR、编程智能体、Office 文件、股票、新闻、**AI 图片生成**
+- **AI 图片生成** — 使用 pollinations.ai（免费，无需 API Key）自动生成人物自拍和周边风景；定时主动生成（约 3 小时间隔）；聊天气泡展示图片；人格绑定的头像提示词，支持 AI 自动生成
 - **成长引擎** — 人格漂移 + 主动学习 + 体验认知（去重合并 + 活跃度衰减）— AGI 在对话中不断进化
 - **手机端 Web 客户端** — 内置 Web 服务（FastAPI），手机浏览器直接聊天，与桌面端共享同一个 Agent 实例和记忆
 - **主动对话** — AGI 自主发起话题，用户回复后完整记忆链存储（系统→用户→AI 三方合一）
@@ -89,7 +90,8 @@ agi_app/
 │   ├── association.py       # 记忆关联网络（有向加权图）
 │   ├── agent.py             # A 层意识体（感知→记忆→推理→工具→生成）
 │   ├── executor.py          # B 层工具执行循环（ReAct，最多 8 步）
-│   ├── tools.py             # 27 个工具函数
+│   ├── tools.py             # 28 个工具函数
+│   ├── image_gen.py         # AI 图片生成（pollinations.ai，自拍 & 风景）
 │   ├── coder.py             # 自主编程智能体（写→运行→修复循环）
 │   ├── office_tools.py      # Office 文件工具（docx/xlsx/pptx/pdf）
 │   ├── user_profile.py      # 用户画像（特征积累 + 异常检测）
@@ -169,7 +171,7 @@ agi_app/
 
 ---
 
-## 工具列表（27 个）
+## 工具列表（28 个）
 
 | 分类 | 工具 |
 |------|------|
@@ -181,6 +183,7 @@ agi_app/
 | **Office** | `create_word` · `create_excel` · `create_pptx` · `create_pdf` · `read_office_file` |
 | **金融** | `get_stock_info` · `search_stock` |
 | **新闻** | `get_news` · `get_news_sources` |
+| **图片** | `generate_image`（pollinations.ai，免费，无需 API Key） |
 
 所有高风险工具（`run_command`、`run_python`）执行前需要用户明确确认。
 
@@ -298,6 +301,7 @@ Ollama 不原生支持 function calling。建议使用 DeepSeek API 以获得完
 - **浏览器**：Playwright（可选）
 - **金融**：yfinance
 - **文章**：newspaper3k
+- **图片**：pollinations.ai（免费 AI 图片生成）
 
 ---
 

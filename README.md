@@ -23,7 +23,8 @@
 - **A/B Dual Architecture** — Layer A (consciousness) has personality, emotions, judgment; Layer B (executor) calls LLM + tools
 - **Hierarchical Memory** — SQLite + vector retrieval, three-tier storage (outline/detail/fragment) + associative network + two-phase retrieval
 - **User Profile** — Gradually accumulates personality traits, detects anomalous behavior, identity verification
-- **27 Built-in Tools** — File operations, system control, web search, browser automation, OCR, coding agent, Office I/O, stock info, news
+- **28 Built-in Tools** — File operations, system control, web search, browser automation, OCR, coding agent, Office I/O, stock info, news, **AI image generation**
+- **AI Image Generation** — Auto-generates character selfies & scenery using pollinations.ai (free, no API key); proactive periodic generation (~3h); chat bubble image display; personality-bound avatar prompts with AI auto-generation
 - **Growth Engine** — Personality drift + active learning + experiential cognition with deduplication & activity decay — the AGI evolves through conversation
 - **Mobile Web Client** — Built-in web server (FastAPI), chat from any phone browser, shares the same agent instance and memory as desktop
 - **Proactive Conversation** — AGI initiates topics autonomously; user replies are stored as complete memory chains (system→user→AI)
@@ -89,7 +90,8 @@ agi_app/
 │   ├── association.py       # Memory association network (directed weighted graph)
 │   ├── agent.py             # Layer A consciousness agent (perceive→memory→reason→tool→generate)
 │   ├── executor.py          # Layer B tool execution loop (ReAct, max 8 steps)
-│   ├── tools.py             # 27 tool functions
+│   ├── tools.py             # 28 tool functions
+│   ├── image_gen.py         # AI image generation (pollinations.ai, selfie & scenery)
 │   ├── coder.py             # Autonomous coding agent (write→run→fix loop)
 │   ├── office_tools.py      # Office file tools (docx/xlsx/pptx/pdf)
 │   ├── user_profile.py      # User profile (trait accumulation + anomaly detection)
@@ -169,7 +171,7 @@ User Input
 
 ---
 
-## Tool List (27)
+## Tool List (28)
 
 | Category | Tools |
 |----------|-------|
@@ -181,6 +183,7 @@ User Input
 | **Office** | `create_word` · `create_excel` · `create_pptx` · `create_pdf` · `read_office_file` |
 | **Finance** | `get_stock_info` · `search_stock` |
 | **News** | `get_news` · `get_news_sources` |
+| **Image** | `generate_image` (pollinations.ai, free, no API key) |
 
 All high-risk tools (`run_command`, `run_python`) require explicit user confirmation before execution.
 
@@ -298,6 +301,7 @@ Ollama doesn't natively support function calling. Use DeepSeek API for full tool
 - **Browser**: Playwright (optional)
 - **Finance**: yfinance
 - **Article**: newspaper3k
+- **Image**: pollinations.ai (free AI image generation)
 
 ---
 
