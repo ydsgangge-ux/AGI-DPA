@@ -447,20 +447,32 @@ class ConsciousnessAgent:
             img_path = img_match.group(1).strip()
             user_input = user_input.replace(img_match.group(0), "").strip()
             try:
-                from engine.office_tools import analyze_image
-                from desktop.config import load_config
-                cfg = load_config()
-                result = analyze_image(
-                    img_path,
-                    question=user_input or "描述这张图片",
-                    api_key=cfg.get("api_key", ""),
-                    provider=cfg.get("api_provider", "openai")
-                )
-                if result.get("ok"):
-                    file_context = f"【图片识别结果】\n{result['description']}"
-                    self._log("图片", f"识别成功：{result['description'][:80]}")
+                from engine.vision_client import create_vision_client
+                client = create_vision_client()
+                if client:
+                    result = client.analyze(img_path,
+                                            question=user_input or "描述这张图片")
+                    if result.get("ok"):
+                        file_context = f"【图片识别结果】\n{result['description']}"
+                        self._log("图片", f"识别成功：{result['description'][:80]}")
+                    else:
+                        file_context = f"【图片】路径：{img_path}（识别失败：{result.get('error','')}）"
                 else:
-                    file_context = f"【图片】路径：{img_path}（识别失败：{result.get('error','')}）"
+                    # 回退到旧版 office_tools
+                    from engine.office_tools import analyze_image
+                    from desktop.config import load_config
+                    cfg = load_config()
+                    result = analyze_image(
+                        img_path,
+                        question=user_input or "描述这张图片",
+                        api_key=cfg.get("api_key", ""),
+                        provider=cfg.get("api_provider", "openai")
+                    )
+                    if result.get("ok"):
+                        file_context = f"【图片识别结果】\n{result['description']}"
+                        self._log("图片", f"识别成功（回退模式）：{result['description'][:80]}")
+                    else:
+                        file_context = f"【图片】路径：{img_path}（识别失败：{result.get('error','')}）"
             except Exception as e:
                 file_context = f"【图片】路径：{img_path}"
 

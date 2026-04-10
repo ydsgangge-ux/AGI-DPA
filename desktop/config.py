@@ -39,6 +39,11 @@ DEFAULT_CONFIG = {
     "ocr_language":      "chi_sim+eng",
     "verbose":           True,
     "newsapi_key":       "",     # NewsAPI.org API Key（可选，用于新闻工具）
+    # ── 多模态模型配置（Vision）──
+    "vision_provider":   "",     # 空则自动继承主 LLM，可设 "openai"/"claude"/"gemini"/"qwen"/"zhipu"/"ollama"
+    "vision_model":      "",     # 空则用 provider 默认 vision 模型
+    "vision_api_key":    "",     # 空则继承主 API Key
+    "vision_base_url":   "",     # 自定义 API 地址（一般不用填）
 }
 
 

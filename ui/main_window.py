@@ -1475,6 +1475,71 @@ class SettingsPage(QWidget):
         self._api_link_lbl.setStyleSheet("color:#58a6ff;font-size:11px;")
         api_lay.addWidget(self._api_link_lbl, 4, 1)
 
+        # ── 多模态模型配置（Vision）──
+        from engine.vision_client import VISION_PROVIDER_INFO, check_vision_available
+
+        vision_box = QGroupBox("👁️ 多模态模型（Vision）")
+        vision_lay = QGridLayout(vision_box)
+
+        # 说明标签
+        vision_desc = QLabel(
+            "配置独立的多模态模型，用于图片/视频/音频理解分析。\n"
+            "与文本 LLM 独立运行，互不影响。留空则自动继承主 LLM 的多模态能力。"
+        )
+        vision_desc.setStyleSheet("color:#8b949e;font-size:11px;")
+        vision_desc.setWordWrap(True)
+        vision_lay.addWidget(vision_desc, 0, 0, 1, 2)
+
+        # Vision Provider 选择
+        vision_lay.addWidget(QLabel("多模态服务商:"), 1, 0)
+        self._vision_provider = QComboBox()
+        self._vision_provider.setStyleSheet(COMBO_STYLE)
+        # 添加"自动继承"选项
+        self._vision_provider.addItem("🔄 自动继承主 LLM", "")
+        for key in VISION_PROVIDER_INFO:
+            info = VISION_PROVIDER_INFO[key]
+            self._vision_provider.addItem(info["name"], key)
+        saved_vision_provider = self._cfg.get("vision_provider", "")
+        for i in range(self._vision_provider.count()):
+            if self._vision_provider.itemData(i) == saved_vision_provider:
+                self._vision_provider.setCurrentIndex(i); break
+        self._vision_provider.currentIndexChanged.connect(self._on_vision_provider_changed)
+        vision_lay.addWidget(self._vision_provider, 1, 1)
+
+        # Vision 模型选择
+        vision_lay.addWidget(QLabel("Vision 模型:"), 2, 0)
+        self._vision_model = QComboBox()
+        self._vision_model.setStyleSheet(COMBO_STYLE)
+        self._vision_model.setEditable(True)
+        vision_lay.addWidget(self._vision_model, 2, 1)
+
+        # Vision API Key
+        vision_lay.addWidget(QLabel("API Key:"), 3, 0)
+        self._vision_api_key = QLineEdit(self._cfg.get("vision_api_key", ""))
+        self._vision_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self._vision_api_key.setPlaceholderText("留空则继承主 LLM 的 API Key")
+        vision_lay.addWidget(self._vision_api_key, 3, 1)
+
+        # Vision Base URL（高级设置）
+        vision_lay.addWidget(QLabel("自定义地址:"), 4, 0)
+        self._vision_base_url = QLineEdit(self._cfg.get("vision_base_url", ""))
+        self._vision_base_url.setPlaceholderText("留空使用默认地址")
+        vision_lay.addWidget(self._vision_base_url, 4, 1)
+
+        # 支持的模态标签
+        self._vision_support_lbl = QLabel("")
+        self._vision_support_lbl.setStyleSheet("font-size:11px;color:#8b949e;")
+        vision_lay.addWidget(self._vision_support_lbl, 5, 0, 1, 2)
+
+        # Vision 注册链接
+        self._vision_link_lbl = QLabel("")
+        self._vision_link_lbl.setOpenExternalLinks(True)
+        self._vision_link_lbl.setStyleSheet("color:#58a6ff;font-size:11px;")
+        vision_lay.addWidget(self._vision_link_lbl, 6, 1)
+
+        # 初始化 vision provider 状态
+        self._on_vision_provider_changed(self._vision_provider.currentIndex())
+
         # Ollama 额外设置（只有选 Ollama 时显示）
         self._ollama_widget = QWidget()
         ol_lay = QGridLayout(self._ollama_widget)
@@ -1648,6 +1713,7 @@ class SettingsPage(QWidget):
         news_lay.addWidget(news_link, 2, 1)
 
         layout.addWidget(api_box)
+        layout.addWidget(vision_box)
         layout.addWidget(hotkey_box)
         layout.addWidget(win_box)
         layout.addWidget(tts_box)
@@ -1689,6 +1755,49 @@ class SettingsPage(QWidget):
         self._ollama_widget.setVisible(is_ollama)
         self._api_key.setEnabled(not is_ollama)
         self._api_key.setPlaceholderText("" if is_ollama else "Enter your API key")
+
+    def _on_vision_provider_changed(self, idx: int):
+        from engine.vision_client import VISION_PROVIDER_INFO
+        key = self._vision_provider.itemData(idx) or ""
+
+        # 更新模型列表
+        self._vision_model.clear()
+        if key and key in VISION_PROVIDER_INFO:
+            info = VISION_PROVIDER_INFO[key]
+            for m in info.get("models", []):
+                self._vision_model.addItem(m)
+            saved_vision_model = self._cfg.get("vision_model") or info.get("default_model", "")
+            self._vision_model.setCurrentText(saved_vision_model)
+
+            # 显示支持的模态
+            supports = info.get("supports", [])
+            support_icons = {"image": "🖼️ 图片", "video": "🎬 视频", "audio_note": "📝 视频帧", "audio": "🎵 音频"}
+            support_text = "支持: " + " | ".join(
+                support_icons.get(s, s) for s in supports
+            )
+            self._vision_support_lbl.setText(support_text)
+
+            # 注册链接
+            url = info.get("url", "")
+            if url:
+                self._vision_link_lbl.setText(
+                    f'注册地址: <a href="{url}" style="color:#58a6ff;">{url}</a>'
+                )
+            else:
+                self._vision_link_lbl.setText("")
+
+            # Ollama 不需要 API Key
+            self._vision_api_key.setEnabled(key != "ollama")
+            self._vision_api_key.setPlaceholderText(
+                "Ollama 本地运行，无需 API Key" if key == "ollama"
+                else "留空则继承主 LLM 的 API Key"
+            )
+        else:
+            # 自动继承模式
+            self._vision_support_lbl.setText("将自动使用主 LLM 的多模态能力")
+            self._vision_link_lbl.setText("")
+            self._vision_api_key.setEnabled(False)
+            self._vision_api_key.setPlaceholderText("自动继承，无需单独配置")
 
     def _check_ollama(self):
         from engine.llm_client import OllamaClient
@@ -1732,6 +1841,11 @@ class SettingsPage(QWidget):
         self._cfg["tts_rate"]          = self._tts_rate.value()
         self._cfg["ocr_language"]      = self._ocr_lang.text().strip()
         self._cfg["newsapi_key"]       = self._newsapi_key.text().strip()
+        # 多模态 Vision 配置
+        self._cfg["vision_provider"]   = self._vision_provider.currentData() or ""
+        self._cfg["vision_model"]      = self._vision_model.currentText().strip()
+        self._cfg["vision_api_key"]    = self._vision_api_key.text().strip()
+        self._cfg["vision_base_url"]   = self._vision_base_url.text().strip()
 
         # 立即应用语言
         try:

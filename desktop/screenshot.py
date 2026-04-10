@@ -10,7 +10,7 @@ import sys
 import tempfile
 from typing import Optional, Tuple
 
-from PyQt6.QtCore import Qt, QRect, QPoint, pyqtSignal, QThread
+from PyQt6.QtCore import Qt, QRect, QPoint, pyqtSignal, QThread, QBuffer, QIODevice
 from PyQt6.QtGui import (QPixmap, QPainter, QColor, QPen,
                           QGuiApplication, QFont)
 from PyQt6.QtWidgets import QWidget, QApplication, QRubberBand
@@ -21,14 +21,16 @@ def ocr_from_pixmap(pixmap: QPixmap, lang: str = "chi_sim+eng") -> str:
     """从 QPixmap 提取文字，自动选择可用引擎"""
 
     # 转为 PIL Image
-    buf = io.BytesIO()
-    ba = pixmap.toImage()
-    ba.save(buf := io.BytesIO(), "PNG")  # type: ignore
+    qimg = pixmap.toImage()
+    buf = QBuffer()
+    buf.open(QIODevice.OpenModeFlag.ReadWrite)
+    qimg.save(buf, "PNG")
     buf.seek(0)
+    pil_buf = io.BytesIO(buf.data())
 
     try:
         from PIL import Image as PILImage
-        pil_img = PILImage.open(buf)
+        pil_img = PILImage.open(pil_buf)
     except ImportError:
         return "[需要安装 Pillow: pip install Pillow]"
 

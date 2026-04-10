@@ -1444,21 +1444,59 @@ def create_pdf_file(path: str, content: str, title: str = "") -> Dict:
 
 @register_tool(
     name="analyze_image",
-    description="分析图片内容（需要 Vision 支持的 LLM：OpenAI GPT-4V / Claude / Gemini）",
+    description="分析图片内容。使用独立的多模态模型（非文本LLM），支持 OCR、图表解读、场景描述等。支持 OpenAI GPT-4o / Claude / Gemini / Qwen-VL / GLM-4V / Ollama(llava)",
     parameters={
-        "image_path": {"type": "string", "description": "图片文件路径", "required": True},
-        "question":   {"type": "string", "description": "关于图片的问题，不填则描述图片内容"},
-        "provider":   {"type": "string", "description": "LLM服务商：openai/claude/gemini，默认 openai"},
-        "api_key":    {"type": "string", "description": "API Key（可选，不填则用系统配置）"}
+        "image_path": {"type": "string", "description": "图片文件路径（jpg/png/gif/webp等）", "required": True},
+        "question":   {"type": "string", "description": "关于图片的问题，不填则自动描述图片内容"}
     },
     risk="low"
 )
-def analyze_image_tool(image_path: str, question: str = "",
-                       provider: str = "openai", api_key: str = "") -> Dict:
-    from engine.office_tools import analyze_image
-    from desktop.config import load_config
-    if not api_key:
-        cfg = load_config()
-        api_key = cfg.get("api_key", "")
-        provider = cfg.get("api_provider", "openai")
-    return analyze_image(image_path, question, api_key, provider)
+def analyze_image_tool(image_path: str, question: str = "") -> Dict:
+    from engine.vision_client import create_vision_client
+    client = create_vision_client()
+    if not client:
+        return {"ok": False,
+                "error": "未配置多模态模型",
+                "tip": "请在设置中配置多模态模型（Vision），或在设置页面点击\"多模态配置\"进行设置"}
+    result = client.analyze(image_path, question or "请详细描述这张图片的内容，包括主要对象、场景、文字等关键信息。")
+    return result
+
+
+@register_tool(
+    name="analyze_video",
+    description="分析视频内容。使用多模态模型理解视频，描述画面、动作、场景等。需要 Gemini 等支持视频的模型",
+    parameters={
+        "video_path": {"type": "string", "description": "视频文件路径（mp4/webm/mov等，建议不超过30秒）", "required": True},
+        "question":   {"type": "string", "description": "关于视频的问题，不填则自动描述视频内容"}
+    },
+    risk="low"
+)
+def analyze_video_tool(video_path: str, question: str = "") -> Dict:
+    from engine.vision_client import create_vision_client
+    client = create_vision_client()
+    if not client:
+        return {"ok": False,
+                "error": "未配置多模态模型",
+                "tip": "视频分析需要 Gemini 等支持视频的模型，请在设置中配置多模态模型"}
+    result = client.analyze(video_path, question or "请详细描述这个视频的内容，包括场景、人物动作、关键事件等。")
+    return result
+
+
+@register_tool(
+    name="analyze_audio",
+    description="分析音频内容。使用多模态模型理解音频，可进行语音识别、音乐分析、情感判断等。需要 Gemini 等支持音频的模型",
+    parameters={
+        "audio_path": {"type": "string", "description": "音频文件路径（mp3/wav/ogg/m4a等）", "required": True},
+        "question":   {"type": "string", "description": "关于音频的问题，不填则自动转录和描述音频内容"}
+    },
+    risk="low"
+)
+def analyze_audio_tool(audio_path: str, question: str = "") -> Dict:
+    from engine.vision_client import create_vision_client
+    client = create_vision_client()
+    if not client:
+        return {"ok": False,
+                "error": "未配置多模态模型",
+                "tip": "音频分析需要 Gemini 等支持音频的模型，请在设置中配置多模态模型"}
+    result = client.analyze(audio_path, question or "请转录并描述这个音频的内容。")
+    return result
