@@ -4327,12 +4327,19 @@ class FaceRecognitionPage(QWidget):
 # ── 主窗口 ────────────────────────────────────────
 class MainWindow(QMainWindow):
 
+    # 人脸识别完成后通知 UI 的信号（在主线程执行）
+    _auth_done = pyqtSignal()
+
     def __init__(self, agent, db_file: str):
         super().__init__()
         self.agent = agent
         self.db_file = db_file
         self._worker: AGIWorker | None = None
         self._thinking_lbl = None
+        self._auth = None
+
+        # 连接人脸识别完成信号 → 主线程更新 UI
+        self._auth_done.connect(self._on_face_recognized)
 
         self.setWindowTitle(APP_NAME)
         self.setMinimumSize(900, 640)
@@ -4891,7 +4898,7 @@ class MainWindow(QMainWindow):
 
     def _update_personality_auth(self):
         """根据当前认证状态更新人格设定页的保存按钮和表单可编辑性"""
-        verified = hasattr(self, '_auth') and self._auth and self._auth.is_verified()
+        verified = bool(hasattr(self, '_auth') and self._auth and self._auth.is_verified())
         if not hasattr(self, '_p_btn_save'):
             return
         self._p_btn_save.setEnabled(verified)
@@ -4903,7 +4910,8 @@ class MainWindow(QMainWindow):
             for slider in self._trait_sliders.values():
                 slider.setEnabled(True)
         else:
-            if hasattr(self, '_auth') and self._auth and self._auth.is_no_face():
+            no_face = bool(hasattr(self, '_auth') and self._auth and self._auth.is_no_face())
+            if no_face:
                 self._p_auth_hint.setText("🔒 请先注册账户")
             else:
                 self._p_auth_hint.setText("🔒 请先登录")
@@ -4939,26 +4947,38 @@ class MainWindow(QMainWindow):
 
     # ── 身份验证 ─────────────────────────────────
     def start_auth_verification(self, auth_manager):
-        """启动时在后台线程做人脸验证"""
+        """启动时后台做人脸识别，识别用户身份后自动登录"""
         import threading
         self._auth = auth_manager
 
-        def _verify():
-            result = auth_manager.verify_face()
-            QTimer.singleShot(0, lambda: self._on_auth_result(result))
+        def _recognize():
+            try:
+                # 人脸识别只负责「认出是谁」，verify_face 会自动设置 state
+                auth_manager.verify_face()
+            except Exception as e:
+                print(f"[人脸识别] 异常: {e}")
+            # 无论成功失败，通过信号通知主线程刷新 UI
+            self._auth_done.emit()
 
-        threading.Thread(target=_verify, daemon=True).start()
+        threading.Thread(target=_recognize, daemon=True).start()
 
-    def _on_auth_result(self, result: dict):
+    def _on_face_recognized(self):
+        """信号回调（主线程）：读取 auth 状态，更新 UI + 权限"""
+        if not self._auth:
+            return
         from engine.auth import AuthState
-        state  = result.get("state", AuthState.GUEST)
-        reason = result.get("reason", "")
-        if state == AuthState.VERIFIED:
+
+        state = self._auth.state
+        # 统一为字符串
+        state_str = state.value if hasattr(state, 'value') else str(state)
+
+        if state_str == "verified":
             name = self._auth.current_name or "已认证用户"
             self._status_auth.setText(f"🟢 {name}")
             self._status_auth.setStyleSheet("color:#3fb950;font-size:11px;")
-            self.chat_page.add_ai_message(f"✅ {reason}")
-        elif state == AuthState.NO_FACE:
+            self._status_auth.setCursor(Qt.CursorShape.ArrowCursor)
+            self.chat_page.add_ai_message(f"✅ 欢迎回来，{name}")
+        elif state_str == "no_face":
             self._status_auth.setText("🟡 未注册用户（点击注册）")
             self._status_auth.setStyleSheet(
                 "color:#d29922;font-size:11px;text-decoration:underline;")
@@ -4968,6 +4988,7 @@ class MainWindow(QMainWindow):
                 "当前以完整权限运行。"
             )
         else:
+            # guest 或识别失败 → 游客模式
             self._status_auth.setText("🔴 游客模式（点击解锁）")
             self._status_auth.setStyleSheet(
                 "color:#f85149;font-size:11px;text-decoration:underline;")
@@ -4976,7 +4997,21 @@ class MainWindow(QMainWindow):
                 "私人记忆和用户画像已保护。\n"
                 "点击底部「游客模式」可以登录或注册账户。"
             )
-        # 更新人格设定页的认证状态
+        # 刷新人格设定页的认证状态（权限开关）
+        self._update_personality_auth()
+
+    def _on_auth_result(self, result: dict):
+        """供对话框内人脸登录成功后调用的快捷入口"""
+        from engine.auth import AuthState
+        state = result.get("state", AuthState.GUEST)
+        state_str = state.value if hasattr(state, 'value') else str(state)
+
+        if state_str == "verified":
+            name = self._auth.current_name or "已认证用户"
+            self._status_auth.setText(f"🟢 {name}")
+            self._status_auth.setStyleSheet("color:#3fb950;font-size:11px;")
+            self._status_auth.setCursor(Qt.CursorShape.ArrowCursor)
+            self.chat_page.add_ai_message(f"✅ 欢迎回来，{name}")
         self._update_personality_auth()
 
     def _on_auth_click(self):
@@ -5034,112 +5069,9 @@ class MainWindow(QMainWindow):
         sep0 = QFrame(); sep0.setFrameShape(QFrame.Shape.HLine)
         sep0.setStyleSheet("color:#30363d;"); layout.addWidget(sep0)
 
-        # ── 登录区 ──
+        # ── 登录区（仅密码短语） ──
         login_widget = QWidget()
         lw = QVBoxLayout(login_widget); lw.setContentsMargins(0,0,0,0); lw.setSpacing(8)
-        lw.addWidget(_make_label("人脸识别登录", "color:#8b949e;font-size:12px;"))
-
-        # 摄像头预览区
-        cam_preview = QLabel()
-        cam_preview.setFixedSize(240, 180)
-        cam_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        cam_preview.setStyleSheet(
-            "background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#6e7681;font-size:12px;"
-        )
-        cam_preview.setText("摄像头预览")
-        lw.addWidget(cam_preview, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        # 状态标签（步骤提示）
-        face_msg = QLabel("点击「开始识别」打开摄像头")
-        face_msg.setStyleSheet("color:#8b949e;font-size:11px;text-align:center;")
-        face_msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lw.addWidget(face_msg)
-
-        # 进度条（识别时显示）
-        from PyQt6.QtWidgets import QProgressBar
-        face_progress = QProgressBar()
-        face_progress.setRange(0, 0)   # 无限循环模式
-        face_progress.setFixedHeight(4)
-        face_progress.setTextVisible(False)
-        face_progress.setVisible(False)
-        face_progress.setStyleSheet(
-            "QProgressBar{background:#21262d;border-radius:2px;border:none;}"
-            "QProgressBar::chunk{background:#58a6ff;border-radius:2px;}"
-        )
-        lw.addWidget(face_progress)
-
-        btn_face = QPushButton("📷  开始识别")
-        btn_face.setStyleSheet(
-            "QPushButton{background:rgba(31,111,235,.2);border:1px solid #1f6feb;"
-            "border-radius:8px;color:#58a6ff;padding:10px;font-size:13px;}"
-            "QPushButton:hover{background:rgba(31,111,235,.4);}"
-            "QPushButton:disabled{opacity:0.4;}"
-        )
-        lw.addWidget(btn_face)
-
-        # 摄像头预览线程
-        _cam_timer = [None]   # 用列表包装以便在闭包内修改
-        _cam_running = [False]
-        _cap_obj     = [None]   # 持续持有的 VideoCapture 对象
-        _last_frame  = [None]   # 最近一帧（供识别用）
-
-        def _camera_loop():
-            """后台线程：持续读帧，写入 _last_frame，通知 UI 刷新"""
-            import cv2
-            cap = cv2.VideoCapture(0)
-            if not cap.isOpened():
-                QTimer.singleShot(0, lambda: (
-                    cam_preview.setText("❌ 摄像头打开失败"),
-                    cam_preview.setStyleSheet(
-                        "background:#0d1117;border:1px solid #f85149;"
-                        "border-radius:8px;color:#f85149;font-size:12px;"
-                    )
-                ))
-                return
-            _cap_obj[0] = cap
-            while _cam_running[0]:
-                ret, frame = cap.read()
-                if not ret:
-                    import time; time.sleep(0.05)
-                    continue
-                import cv2 as _cv2
-                rgb = _cv2.cvtColor(frame, _cv2.COLOR_BGR2RGB)
-                _last_frame[0] = rgb
-                # 更新 UI
-                h, w, c = rgb.shape
-                from PyQt6.QtGui import QImage, QPixmap
-                img = QImage(rgb.data, w, h, w * c, QImage.Format.Format_RGB888)
-                pix = QPixmap.fromImage(img).scaled(
-                    240, 180,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
-                )
-                QTimer.singleShot(0, lambda p=pix: cam_preview.setPixmap(p))
-                import time; time.sleep(0.1)   # ~10fps
-            cap.release()
-            _cap_obj[0] = None
-
-        def _start_camera_preview():
-            if _cam_running[0]:
-                return
-            cam_preview.setText("摄像头启动中…")
-            _cam_running[0] = True
-            import threading
-            threading.Thread(target=_camera_loop, daemon=True).start()
-
-        def _stop_camera_preview():
-            _cam_running[0] = False
-            _last_frame[0]  = None
-
-        # 关闭对话框时停止预览
-        orig_close = dialog.closeEvent if hasattr(dialog, 'closeEvent') else None
-        def _on_close(event):
-            _stop_camera_preview()
-            if orig_close:
-                orig_close(event)
-        dialog.closeEvent = _on_close
-        sep1 = QFrame(); sep1.setFrameShape(QFrame.Shape.HLine)
-        sep1.setStyleSheet("color:#30363d;"); lw.addWidget(sep1)
         lw.addWidget(_make_label("密码短语登录", "color:#8b949e;font-size:12px;"))
         pw_input = QLineEdit(); pw_input.setPlaceholderText("输入密码短语…")
         pw_input.setEchoMode(QLineEdit.EchoMode.Password)
@@ -5195,65 +5127,6 @@ class MainWindow(QMainWindow):
         btn_register.clicked.connect(_show_reg)
         if not self._auth.has_any_user():
             _show_reg()
-
-        # 人脸登录：先启动预览，点击后拍照识别
-        _face_steps = ["📷 正在打开摄像头…", "🔍 捕捉画面中…", "🧠 识别中…", "✅ 分析结果…"]
-        _step_timer = [None]
-
-        def _do_face():
-            if not _cam_running[0]:
-                # 第一次点击：启动预览
-                _start_camera_preview()
-                btn_face.setText("✅  拍照并识别")
-                face_msg.setText("📷 摄像头已开启，请面对镜头，再次点击识别")
-                face_msg.setStyleSheet("color:#58a6ff;font-size:11px;")
-                return
-            # 第二次点击：拍照识别
-            # 先保存最后一帧再停止预览（_stop_camera_preview 会清空 _last_frame）
-            _captured_frame = _last_frame[0]
-            _stop_camera_preview()
-            btn_face.setText("🧠  识别中…")
-            face_progress.setVisible(True)
-
-            # 步骤动画
-            _step_idx = [0]
-            def _next_step():
-                if _step_idx[0] < len(_face_steps):
-                    face_msg.setText(_face_steps[_step_idx[0]])
-                    face_msg.setStyleSheet("color:#d29922;font-size:11px;")
-                    _step_idx[0] += 1
-            st = QTimer(); st.timeout.connect(_next_step); st.start(800)
-            _step_timer[0] = st
-
-            import threading
-            def _v():
-                # 使用之前保存的帧（避免 _stop_camera_preview 清空后重新开摄像头）
-                frame = _captured_frame if _captured_frame is not None else _last_frame[0]
-                if frame is None:
-                    QTimer.singleShot(0, lambda: _face_done({"ok": False, "state": AuthState.GUEST,
-                                                             "user_id": None, "reason": "未获取到画面，请重试"}))
-                    return
-                r = self._auth.verify_face(image_rgb=frame)
-                QTimer.singleShot(0, lambda: _face_done(r))
-            threading.Thread(target=_v, daemon=True).start()
-
-        def _face_done(r):
-            if _step_timer[0]:
-                _step_timer[0].stop()
-            face_progress.setVisible(False)
-            btn_face.setEnabled(True)
-            btn_face.setText("📷  重新识别")
-            if r.get("state") == AuthState.VERIFIED:
-                face_msg.setText(f"✅ {r.get('reason','识别成功')}")
-                face_msg.setStyleSheet("color:#3fb950;font-size:12px;font-weight:600;")
-                QTimer.singleShot(800, lambda: (self._on_auth_result(r), dialog.close()))
-            else:
-                face_msg.setText(f"❌ {r.get('reason','未识别到已注册用户')}")
-                face_msg.setStyleSheet("color:#f85149;font-size:11px;")
-                # 重新开启预览让用户重试
-                _start_camera_preview()
-                btn_face.setText("✅  重新拍照识别")
-        btn_face.clicked.connect(_do_face)
 
         # 密码登录
         def _do_pw_login():
