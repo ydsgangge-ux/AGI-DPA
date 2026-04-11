@@ -1193,6 +1193,133 @@ def generate_image(prompt: str, width: int = 1024, height: int = 1024) -> Dict:
 
 
 # ═══════════════════════════════════════════════════
+# 热点趋势工具
+# ═══════════════════════════════════════════════════
+
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+}
+
+
+def _fetch_baidu_trending() -> list:
+    """百度热搜"""
+    import httpx
+    url = "https://top.baidu.com/api/board?tab=realtime"
+    with httpx.Client(headers=_HEADERS, timeout=10, verify=False) as client:
+        resp = client.get(url)
+        resp.raise_for_status()
+        data = resp.json()
+    cards = data.get("data", {}).get("cards", [])
+    if not cards:
+        return []
+    content = cards[0].get("content", [])
+    result = []
+    for i, item in enumerate(content):
+        word = item.get("word", "")
+        hot = item.get("hotScore", "")
+        if word:
+            result.append({"rank": i + 1, "title": word, "hot": str(hot)})
+    return result[:30]
+
+
+def _fetch_sspai_feed() -> list:
+    """少数派 RSS"""
+    import feedparser
+    feed = feedparser.parse("https://sspai.com/feed")
+    result = []
+    for entry in feed.entries[:10]:
+        result.append({
+            "title": entry.get("title", ""),
+            "url": entry.get("link", ""),
+        })
+    return result
+
+
+def _fetch_github_trending() -> list:
+    """GitHub Trending (Python)"""
+    import httpx
+    from bs4 import BeautifulSoup
+
+    url = "https://github.com/trending/python?since=daily"
+    headers = {**_HEADERS, "Accept": "text/html"}
+    with httpx.Client(headers=headers, timeout=10, verify=False) as client:
+        resp = client.get(url)
+        resp.raise_for_status()
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    articles = soup.select("article.Box-row")
+    result = []
+    for art in articles[:10]:
+        # 仓库名在 h2 > a
+        h2 = art.select_one("h2 a")
+        if not h2:
+            continue
+        repo = "/".join(h2.get_text(strip=True).split())
+        # 描述在 p
+        p = art.select_one("p")
+        desc = p.get_text(strip=True) if p else ""
+        result.append({"repo": repo, "desc": desc})
+    return result
+
+
+@register_tool(
+    name="get_trending",
+    description="获取百度热搜、少数派最新文章、GitHub今日热门Python项目",
+    parameters={},
+    risk="low"
+)
+def get_trending() -> Dict:
+    """抓取三个平台的热点数据并返回结构化结果"""
+    baidu, sspai, github = [], [], []
+    errors = []
+
+    # 百度热搜
+    try:
+        baidu = _fetch_baidu_trending()
+    except Exception as e:
+        errors.append(f"百度热搜失败: {e}")
+
+    # 少数派
+    try:
+        sspai = _fetch_sspai_feed()
+    except Exception as e:
+        errors.append(f"少数派失败: {e}")
+
+    # GitHub Trending
+    try:
+        github = _fetch_github_trending()
+    except Exception as e:
+        errors.append(f"GitHub Trending失败: {e}")
+
+    summary_parts = []
+    if baidu:
+        summary_parts.append(f"百度热搜 {len(baidu)} 条")
+    if sspai:
+        summary_parts.append(f"少数派 {len(sspai)} 条")
+    if github:
+        summary_parts.append(f"GitHub {len(github)} 条")
+
+    result = {
+        "ok": True,
+        "baidu": baidu,
+        "sspai": sspai,
+        "github": github,
+    }
+    if errors:
+        result["partial_errors"] = errors
+        result["summary"] = "，".join(summary_parts) + f"（部分失败：{len(errors)}/3）"
+    else:
+        result["summary"] = "，".join(summary_parts) + "，全部获取成功"
+
+    return result
+
+
+# ═══════════════════════════════════════════════════
 # 工具执行入口
 # ═══════════════════════════════════════════════════
 
@@ -1245,6 +1372,7 @@ TOOL_DEPS = {
     "get_news":        ["newsapi"],
     "get_news_sources":["newsapi"],
     "read_article":    ["newspaper"],
+    "get_trending":    ["httpx", "feedparser", "bs4"],
 }
 
 def check_tool_deps(tool_name: str) -> Dict:
