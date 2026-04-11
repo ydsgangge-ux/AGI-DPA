@@ -172,6 +172,18 @@ else
     fi
 fi
 
+# httpx / feedparser / beautifulsoup4 (热点趋势工具)
+if python3 -c "import httpx" 2>/dev/null; then
+    echo " [OK] httpx/feedparser/bs4 - already installed"
+else
+    echo " [..] httpx/feedparser/bs4 - installing..."
+    if python3 -m pip install httpx feedparser beautifulsoup4 -q 2>/dev/null; then
+        echo " [OK] httpx/feedparser/bs4 - installed"
+    else
+        echo " [!!] httpx/feedparser/bs4 - FAILED"
+    fi
+fi
+
 echo ""
 if $OFFICE_OK; then
     echo " [OK] All Office dependencies ready (.docx .xlsx .pptx .pdf)."

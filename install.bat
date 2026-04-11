@@ -257,6 +257,21 @@ if errorlevel 1 (
     echo   [OK] fastapi/uvicorn/PyJWT - already installed
 )
 
+::: httpx / feedparser / beautifulsoup4 (热点趋势工具)
+%PYTHON_CMD% -c "import httpx" >nul 2>&1
+if errorlevel 1 (
+    echo   [..] httpx/feedparser/bs4 - installing...
+    %PYTHON_CMD% -m pip install httpx feedparser beautifulsoup4 --quiet 2>nul
+    %PYTHON_CMD% -c "import httpx" >nul 2>&1
+    if errorlevel 1 (
+        echo   [!!] httpx/feedparser/bs4 - FAILED
+    ) else (
+        echo   [OK] httpx/feedparser/bs4 - installed
+    )
+) else (
+    echo   [OK] httpx/feedparser/bs4 - already installed
+)
+
 echo.
 if "%OFFICE_OK%"=="1" (
     echo   [OK] All Office dependencies ready (.docx .xlsx .pptx .pdf).

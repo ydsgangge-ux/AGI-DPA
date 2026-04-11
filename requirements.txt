@@ -32,6 +32,11 @@ edge-tts>=6.1.0
 newspaper3k>=0.2.8
 lxml_html_clean>=0.1.0
 
+# Trending / scraping
+httpx>=0.27.0
+feedparser>=6.0.11
+beautifulsoup4>=4.12.3
+
 # Mobile web server (手机端 Web 服务)
 fastapi>=0.110.0
 uvicorn>=0.27.0
