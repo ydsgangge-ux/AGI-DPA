@@ -45,3 +45,11 @@ main_patch.txt
 
 # Screenshots / temp assets
 screenshot_*.png
+
+# SimLife runtime data (personal, generated on first setup)
+simlife/data/world_state.json
+simlife/data/character_card.json
+simlife/data/npc_cards.json
+simlife/data/event_history.json
+simlife/data/scheduled_events.json
+simlife/data/weather_cache.json

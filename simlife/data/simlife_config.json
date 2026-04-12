@@ -1,0 +1,12 @@
+{
+  "agidpa_data_path": "../",
+  "backend_port": 8765,
+  "tick_interval_seconds": 300,
+  "llm_provider": "deepseek",
+  "llm_api_key": "",
+  "llm_model": "",
+  "weather_api_key": "",
+  "weather_location_id": "",
+  "weather_enabled": false,
+  "language": "zh-CN"
+}

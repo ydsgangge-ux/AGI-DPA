@@ -6,6 +6,7 @@ pollinations.ai 图片生成模块
 import os
 import uuid
 import time
+import random
 import urllib.request
 import urllib.parse
 from pathlib import Path
@@ -70,10 +71,68 @@ _LANDSCAPE_SCENES = [
 ]
 
 
+# ── 拍照动作/姿势（自拍时随机选取）──
+_SELFIE_POSES = [
+    "looking at camera with a gentle smile",
+    "glancing sideways, candid moment",
+    "tilting head slightly, playful expression",
+    "looking down, shy pose",
+    "holding phone for mirror selfie",
+    "waving at camera cheerfully",
+    "covering mouth while laughing",
+    "resting chin on hand, thoughtful look",
+    "stretching arms, relaxed pose",
+    "fixing hair, natural moment",
+    "holding a prop near face, peeking from behind",
+    "looking over shoulder, back view partially",
+    "eyes closed, enjoying the breeze",
+    "making a peace sign, casual vibe",
+    "sipping from a cup, candid lifestyle shot",
+    "leaning against a wall, cool posture",
+    "reading a book, focused expression",
+    "putting on sunglasses, stylish look",
+    "hugging a pillow or plushie, cozy mood",
+    "blowing a kiss to the camera",
+    " adjusting collar, looking away",
+    "walking towards camera, dynamic shot",
+    "sitting cross-legged, relaxed on the floor",
+    "brushing hair aside, soft gaze",
+    "looking up at the sky, dreamy expression",
+]
+
+# ── 景别描述（自拍 + 风景共用）──
+_SHOT_TYPES = [
+    "close-up portrait shot",
+    "medium shot, upper body visible",
+    "full body shot",
+    "extreme close-up on face, detailed features",
+    "wide angle shot showing full scene",
+    "over-the-shoulder shot",
+    "low angle shot looking up slightly",
+    "high angle shot from above",
+    "side profile view",
+    "three-quarter view",
+    "centered composition",
+    "off-center composition, rule of thirds",
+]
+
+# ── 艺术风格（增加多样性）──
+_ART_STYLES = [
+    "anime art style",
+    "soft watercolor illustration style",
+    "digital painting style, semi-realistic",
+    "studio ghibli inspired art style",
+    "manga art style, clean lines",
+    "pastel toned illustration",
+    "warm toned digital art",
+]
+
+
 def build_image_prompt(personality: dict, image_type: str = None) -> str:
     """
     根据人格设定生成图片 prompt。
     image_type: "selfie" 或 "scenery"，None 时随机选
+    每次生成包含随机拍照动作、景别、艺术风格，避免千篇一律。
     """
     avatar = personality.get("avatar_prompt", "").strip()
     name = personality.get("name", "")
@@ -82,8 +141,10 @@ def build_image_prompt(personality: dict, image_type: str = None) -> str:
     if not avatar:
         avatar = "a young woman with gentle eyes, soft smile, casual outfit"
 
+    rng = random.Random(time.time_ns())
+
     if image_type is None:
-        image_type = "selfie" if time.time_ns() % 2 == 0 else "scenery"
+        image_type = "selfie" if rng.random() < 0.6 else "scenery"
 
     # 根据时段微调光线
     hour = datetime.now().hour
@@ -98,12 +159,26 @@ def build_image_prompt(personality: dict, image_type: str = None) -> str:
     else:
         light = "twilight ambiance"
 
+    # 随机艺术风格
+    art_style = rng.choice(_ART_STYLES)
+
     if image_type == "selfie":
-        scene = _SELFIE_SCENES[time.time_ns() % len(_SELFIE_SCENES)]
-        prompt = f"({avatar}), {scene}, {light}, high quality, detailed, anime art style"
+        scene = rng.choice(_SELFIE_SCENES)
+        pose = rng.choice(_SELFIE_POSES)
+        shot = rng.choice(_SHOT_TYPES)
+        prompt = f"({avatar}), {pose}, {scene}, {shot}, {light}, high quality, detailed, {art_style}"
     else:
-        scene = _LANDSCAPE_SCENES[time.time_ns() % len(_LANDSCAPE_SCENES)]
-        prompt = f"{scene}, {light}, beautiful landscape, high quality, detailed, anime art style"
+        scene = rng.choice(_LANDSCAPE_SCENES)
+        # 风景图的景别更偏向远景
+        landscape_shots = [
+            "wide panoramic shot",
+            "vast wide angle view",
+            "aerial bird's eye view",
+            "dramatic wide angle composition",
+            "expansive landscape view",
+        ]
+        shot = rng.choice(landscape_shots)
+        prompt = f"{scene}, {shot}, {light}, beautiful landscape, high quality, detailed, {art_style}"
 
     return prompt, image_type
 

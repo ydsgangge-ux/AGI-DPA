@@ -1,0 +1,208 @@
+[
+  {
+    "id": "parcel_surprise",
+    "label": "收到朋友寄来的快递",
+    "trigger_condition": "",
+    "probability_per_day": 0.03,
+    "mood_delta": 15,
+    "consequences": [],
+    "log_templates": [
+      "收到一个快递，是朋友寄来的，拆开看是一条围巾",
+      "快递到了，是上次逛淘宝时加购物车的那本书"
+    ]
+  },
+  {
+    "id": "design_approved",
+    "label": "设计稿被一次性过了",
+    "trigger_condition": "weekday",
+    "probability_per_day": 0.04,
+    "mood_delta": 25,
+    "consequences": ["early_leave", "possible_park"],
+    "log_templates": [
+      "设计稿过稿了，而且是第一次就过了",
+      "甲方说挺好的不用改了，整个人都轻松了"
+    ]
+  },
+  {
+    "id": "stray_cat_encounter",
+    "label": "遇到一只流浪猫",
+    "trigger_condition": "",
+    "probability_per_day": 0.05,
+    "mood_delta": 10,
+    "consequences": [],
+    "log_templates": [
+      "在路边遇到一只橘猫，蹲下来撸了一会儿",
+      "楼下多了一只流浪猫，买了根火腿肠喂它"
+    ]
+  },
+  {
+    "id": "concert_ticket",
+    "label": "抢到了演出票",
+    "trigger_condition": "",
+    "probability_per_day": 0.01,
+    "mood_delta": 30,
+    "consequences": [],
+    "log_templates": [
+      "抢到了一直想看的演出票，激动了好一会儿",
+      "刷手机看到喜欢的乐队要来巡演，果断买了票"
+    ]
+  },
+  {
+    "id": "subway_delay",
+    "label": "地铁故障迟到",
+    "trigger_condition": "weekday AND commute_to_work",
+    "probability_per_day": 0.06,
+    "mood_delta": -15,
+    "consequences": ["delay_arrive_work", "possible_cafe_evening"],
+    "log_templates": [
+      "地铁在中间站停了十几分钟，全车人都不知道发生了什么",
+      "换乘的时候人太多，挤了三趟才上去",
+      "地铁广播说设备故障，等了快二十分钟"
+    ]
+  },
+  {
+    "id": "extra_task",
+    "label": "被临时加了新需求",
+    "trigger_condition": "weekday",
+    "probability_per_day": 0.08,
+    "mood_delta": -20,
+    "consequences": ["overtime"],
+    "log_templates": [
+      "快下班的时候老板又发来新需求，叹了口气打开电脑",
+      "需求又变了，之前做的全要推翻重来",
+      "客户说想换个方向，已经改了三版了"
+    ]
+  },
+  {
+    "id": "friend_conflict",
+    "label": "和朋友有点小别扭",
+    "trigger_condition": "",
+    "probability_per_day": 0.03,
+    "mood_delta": -15,
+    "consequences": [],
+    "log_templates": [
+      "和朋友因为一件小事有点不愉快，翻来覆去想了好久",
+      "朋友说话有点冲，不知道是自己太敏感还是对方心情不好"
+    ]
+  },
+  {
+    "id": "pet_sick",
+    "label": "猫生病了",
+    "trigger_condition": "",
+    "probability_per_day": 0.02,
+    "mood_delta": -25,
+    "consequences": ["pet_hospital"],
+    "log_templates": [
+      "发现猫不太吃东西，下班直接去了宠物医院",
+      "猫吐了两次，赶紧查了一下附近的宠物医院"
+    ]
+  },
+  {
+    "id": "finished_book",
+    "label": "看完了攒了很久的一本书",
+    "trigger_condition": "",
+    "probability_per_day": 0.04,
+    "mood_delta": 8,
+    "consequences": [],
+    "log_templates": [
+      "终于把那本看了两个月的书看完了，结局出乎意料",
+      "睡前翻完最后一章，合上书发了会儿呆"
+    ]
+  },
+  {
+    "id": "film_crew_spotted",
+    "label": "街上看到有人在拍电影",
+    "trigger_condition": "",
+    "probability_per_day": 0.03,
+    "mood_delta": 5,
+    "consequences": [],
+    "log_templates": [
+      "下班路上看到有剧组在拍东西，围观了一会儿",
+      "路口封了一半，说是在拍广告"
+    ]
+  },
+  {
+    "id": "craving_childhood",
+    "label": "突然很想吃小时候的东西",
+    "trigger_condition": "",
+    "probability_per_day": 0.04,
+    "mood_delta": 0,
+    "consequences": [],
+    "log_templates": [
+      "突然特别想吃小时候学校门口卖的那种烤肠",
+      "翻到一张小时候的照片，突然想吃外婆做的红烧肉"
+    ]
+  },
+  {
+    "id": "rain_no_umbrella",
+    "label": "出门没带伞被雨淋了",
+    "trigger_condition": "",
+    "probability_per_day": 0.03,
+    "mood_delta": -10,
+    "consequences": [],
+    "log_templates": [
+      "出门的时候还没下雨，到了公司才发现外面瓢泼大雨",
+      "在便利店买了把伞，但已经湿了大半个肩膀"
+    ]
+  },
+  {
+    "id": "good_lunch",
+    "label": "发现了一家好吃的店",
+    "trigger_condition": "weekday",
+    "probability_per_day": 0.05,
+    "mood_delta": 8,
+    "consequences": [],
+    "log_templates": [
+      "同事推荐了一家面馆，意外地好吃",
+      "在巷子里发现了一家小餐馆，藏得真深"
+    ]
+  },
+  {
+    "id": "social_media_viral",
+    "label": "发的内容被很多人点赞",
+    "trigger_condition": "",
+    "probability_per_day": 0.02,
+    "mood_delta": 12,
+    "consequences": [],
+    "log_templates": [
+      "随手发的一条动态意外火了，一直在刷评论",
+      "上次拍的照片被好多人点赞，有点开心"
+    ]
+  },
+  {
+    "id": "early_morning",
+    "label": "今天醒得特别早",
+    "trigger_condition": "",
+    "probability_per_day": 0.04,
+    "mood_delta": -3,
+    "consequences": [],
+    "log_templates": [
+      "不知道为什么五点多就醒了，翻了个身又睡了过去",
+      "被楼上的装修声吵醒了，比闹钟还早半小时"
+    ]
+  },
+  {
+    "id": "package_lost",
+    "label": "快递显示签收但没收到",
+    "trigger_condition": "",
+    "probability_per_day": 0.03,
+    "mood_delta": -12,
+    "consequences": [],
+    "log_templates": [
+      "快递显示已签收，但根本没收到，找客服沟通了半天",
+      "翻遍了门口没找到快递，最后发现被放到了邻居家"
+    ]
+  },
+  {
+    "id": "nice_weather_walk",
+    "label": "天气特别好出去走了走",
+    "trigger_condition": "",
+    "probability_per_day": 0.04,
+    "mood_delta": 10,
+    "consequences": [],
+    "log_templates": [
+      "今天天气特别好，午饭后在公司楼下转了一圈",
+      "阳光很好，在阳台站了一会儿，感觉心情好了一些"
+    ]
+  }
+]

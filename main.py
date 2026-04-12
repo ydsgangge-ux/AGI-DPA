@@ -8,6 +8,7 @@ import os
 import json
 import random
 import time
+import threading
 from pathlib import Path
 from datetime import datetime
 
@@ -197,6 +198,41 @@ class EngineLoader(QThread):
             # 身份验证管理器
             auth = AuthManager(DB_FILE)
 
+            # SimLife 生活状态客户端（可选，SimLife 未初始化不影响主系统）
+            simlife_client = None
+            try:
+                from engine.simlife_client import SimLifeClient
+                _sl = SimLifeClient()
+                if _sl.is_available():
+                    simlife_client = _sl
+                    print("[SimLife] 生活状态模块已连接")
+            except Exception as e:
+                print(f"[SimLife] 未启用（{e}）")
+
+            # SimLife 后端自动启动（后台线程，不依赖前端打开网页）
+            try:
+                from simlife.backend.main import app as simlife_app
+                import uvicorn as _uvicorn
+                def _run_simlife():
+                    _uvicorn.run(simlife_app, host="127.0.0.1", port=8765,
+                                  log_level="warning", access_log=False)
+                _simlife_thread = threading.Thread(target=_run_simlife, daemon=True)
+                _simlife_thread.start()
+                print("[SimLife] 后端服务已在后台启动（端口 8765）")
+            except Exception as e:
+                print(f"[SimLife] 后端自动启动失败（{e}），将回退到文件读取模式")
+
+            # SimLife 新用户引导：检测是否已初始化
+            if not simlife_client or not simlife_client.is_available():
+                print()
+                print("=" * 56)
+                print("  [SimLife] 生活模拟模块尚未初始化")
+                print("  请在浏览器中打开 http://127.0.0.1:8765")
+                print("  填写基本信息后点击「开始生成」即可")
+                print("  初始化后重启本程序即可生效")
+                print("=" * 56)
+                print()
+
             agent = ConsciousnessAgent(
                 personality=personality,
                 memory_manager=memory,
@@ -205,6 +241,7 @@ class EngineLoader(QThread):
                 growth_engine=growth,
                 cognition_store=cognition,
                 auth_manager=auth,
+                simlife_client=simlife_client,
                 verbose=True
             )
             self.ready.emit(agent)
@@ -288,6 +325,15 @@ class AGIApp:
         self.main_win.agent = agent
         self.float_win.agent = agent  # 注入 agent 给悬浮窗主动发言用
 
+        # 注入 simlife_client 给悬浮窗
+        if hasattr(agent, 'simlife') and agent.simlife:
+            self.float_win.simlife_client = agent.simlife
+            # SimLife 状态刷新定时器（每 30 秒）
+            self._simlife_timer = QTimer()
+            self._simlife_timer.timeout.connect(self._refresh_simlife_float)
+            self._simlife_timer.start(30_000)
+            print("[SimLife] 悬浮窗状态面板已启用")
+
         # 把 LLM 客户端共享给编程智能体页
         self.main_win.coder_page.set_llm(agent.b.llm)
 
@@ -325,6 +371,11 @@ class AGIApp:
             print("[记忆衰减] 已执行")
         except Exception as e:
             print(f"[记忆衰减] 失败: {e}")
+
+    def _refresh_simlife_float(self):
+        """定时刷新悬浮窗 SimLife 状态面板"""
+        if self.float_win.isVisible():
+            self.float_win.refresh_simlife_state()
 
     # ── 全局主动发言（主窗口/悬浮窗共享）────────────────
     def _update_chat_time(self):

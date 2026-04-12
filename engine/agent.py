@@ -131,6 +131,7 @@ class ConsciousnessAgent:
         growth_engine: GrowthEngine = None,
         cognition_store: FormedCognitionStore = None,
         auth_manager: AuthManager = None,
+        simlife_client=None,
     ):
         self.personality = personality
         self.memory      = memory_manager
@@ -140,6 +141,7 @@ class ConsciousnessAgent:
         self.growth      = growth_engine
         self.cognition   = cognition_store
         self.auth        = auth_manager       # 身份验证管理器
+        self.simlife     = simlife_client     # SimLife 生活状态客户端
         self.conversation_history: List[Dict] = []
         self.current_emotion = EmotionState()
         self._verify_pending = False
@@ -236,6 +238,15 @@ class ConsciousnessAgent:
             cognition_context = self.cognition.format_for_prompt()
             if cognition_context:
                 profile_context = (cognition_context + "\n\n" + profile_context).strip()
+
+        # SimLife 生活状态注入（角色当前在做什么、心情、今日事件）
+        if self.simlife:
+            try:
+                simlife_context = self.simlife.format_for_prompt()
+                if simlife_context:
+                    profile_context = (simlife_context + "\n\n" + profile_context).strip()
+            except Exception:
+                pass
 
         # 游客模式：注入安全限制提示
         if is_guest and self.auth:
@@ -636,6 +647,15 @@ class ConsciousnessAgent:
         # 4. 人格设定找话题（兜底，总是有）
         triggers.append(("personality", self.personality.to_prompt_description()[:300]))
 
+        # 5. SimLife 当前生活状态（角色正在经历的事）
+        if self.simlife:
+            try:
+                simlife_text = self.simlife.format_for_prompt()
+                if simlife_text:
+                    triggers.append(("simlife", simlife_text[:400]))
+            except Exception:
+                pass
+
         # 随机选一个触发源
         trigger_type, trigger_content = random.choice(triggers)
 
@@ -644,6 +664,7 @@ class ConsciousnessAgent:
             "cognition":   "你最近有一些新的感悟或想法想分享",
             "profile":     "根据你对用户的了解，找一个他平时可能感兴趣的具体话题来聊",
             "personality": "根据你自己的性格和兴趣，分享一个具体的想法、见闻或好奇心",
+            "simlife":     "根据你当前正在做的事或今天经历的事，自然地跟用户分享你的见闻或感受",
         }
 
         # 构建去重提示
