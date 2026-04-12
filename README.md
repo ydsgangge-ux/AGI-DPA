@@ -98,6 +98,7 @@ agi_app/
 │   ├── learner.py           # Growth engine (personality drift + active learning + cognition dedup/decay)
 │   ├── auth.py              # Multi-user identity verification
 │   ├── face_recognition_engine.py  # Face recognition (three-engine lazy-load)
+│   ├── simlife_client.py     # SimLife state reader (HTTP + file fallback)
 │   ├── llm_client.py        # LLM client (DeepSeek/OpenAI/Groq/Claude/Gemini/Ollama)
 │   ├── tts_engine.py        # Voice synthesis (Edge TTS / pyttsx3)
 │   └── i18n.py              # Internationalization (6 languages)
@@ -106,6 +107,20 @@ agi_app/
 │   ├── config.py            # Config management, paths, QSS dark theme
 │   ├── system.py            # System tray, global hotkeys, auto-start
 │   └── screenshot.py        # Screenshot selector + OCR background thread
+│
+├── simlife/                 # SimLife Virtual Life Simulation
+│   ├── backend/             # FastAPI backend (auto-starts with main app)
+│   │   ├── main.py          # Server entry + API routes (port 8765)
+│   │   ├── world_engine.py  # Scene engine (schedule + weather + holidays)
+│   │   ├── event_engine.py  # Daily/random/scheduled event system
+│   │   ├── mood_engine.py   # Mood calculation (scene + events + weather)
+│   │   ├── npc_engine.py    # NPC activation and interaction
+│   │   ├── weather.py       # Open-Meteo weather (free, no API key)
+│   │   ├── generator.py     # LLM character/NPC card generation
+│   │   └── holiday_calendar.py  # Chinese holidays + festivals
+│   ├── frontend/            # Setup web UI (initial character creation)
+│   ├── data/                # Runtime data (character, world state, events)
+│   └── setup.py             # Standalone setup launcher
 │
 └── ui/                      # UI Layer (PyQt6)
     ├── main_window.py       # Main window (7 functional tabs)

@@ -272,6 +272,21 @@ if errorlevel 1 (
     echo   [OK] httpx/feedparser/bs4 - already installed
 )
 
+::: pydantic (SimLife 生活模拟模块依赖)
+%PYTHON_CMD% -c "import pydantic" >nul 2>&1
+if errorlevel 1 (
+    echo   [..] pydantic         - installing...
+    %PYTHON_CMD% -m pip install pydantic --quiet 2>nul
+    %PYTHON_CMD% -c "import pydantic" >nul 2>&1
+    if errorlevel 1 (
+        echo   [!!] pydantic         - FAILED
+    ) else (
+        echo   [OK] pydantic         - installed
+    )
+) else (
+    echo   [OK] pydantic         - already installed
+)
+
 echo.
 if "%OFFICE_OK%"=="1" (
     echo   [OK] All Office dependencies ready (.docx .xlsx .pptx .pdf).

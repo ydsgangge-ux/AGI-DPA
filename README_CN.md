@@ -25,10 +25,11 @@
 - **用户画像** — 逐步积累性格特征，检测异常行为，身份验证
 - **28 个内置工具** — 文件操作、系统控制、网页搜索、浏览器自动化、OCR、编程智能体、Office 文件、股票、新闻、**AI 图片生成**
 - **AI 图片生成** — 使用 pollinations.ai（免费，无需 API Key）自动生成人物自拍和周边风景；定时主动生成（约 3 小时间隔）；聊天气泡展示图片；人格绑定的头像提示词，支持 AI 自动生成
+- **SimLife 生活模拟** — 虚拟生活系统：实时场景引擎（工作/居家/通勤/外出）、每日事件、心情系统、NPC 互动、天气集成（Open-Meteo 免费）、节假日日历。随主程序自动启动，无需单独开服务器。首次使用通过内置 Web 界面初始化（`http://127.0.0.1:8765`）
 - **成长引擎** — 人格漂移 + 主动学习 + 体验认知（去重合并 + 活跃度衰减）— AGI 在对话中不断进化
 - **手机端 Web 客户端** — 内置 Web 服务（FastAPI），手机浏览器直接聊天，与桌面端共享同一个 Agent 实例和记忆
 - **主动对话** — AGI 自主发起话题，用户回复后完整记忆链存储（系统→用户→AI 三方合一）
-- **6 个 LLM 供应商** — DeepSeek / OpenAI / Groq / Claude / Gemini / Ollama（100% 本地）
+- **12 个 LLM 供应商** — DeepSeek / OpenAI / Groq / Claude / Gemini / Qwen / 智谱 GLM / 豆包 / Kimi / 文心一言 / 讯飞星火 / Ollama（100% 本地）
 - **多语言支持** — 中文 / English / 日本語 / 한국어 / Español / العربية
 - **语音合成** — Microsoft Edge TTS，多种语音
 - **人脸识别** — 多引擎（InsightFace / face_recognition / OpenCV），多用户身份
@@ -106,6 +107,20 @@ agi_app/
 │   ├── config.py            # 配置管理、路径、QSS 暗色主题
 │   ├── system.py            # 系统托盘、全局热键、开机自启
 │   └── screenshot.py        # 截图选择器 + OCR 后台线程
+│
+├── simlife/                 # SimLife 虚拟生活模拟
+│   ├── backend/             # FastAPI 后端（随主程序自动启动）
+│   │   ├── main.py          # 服务入口 + API 路由（端口 8765）
+│   │   ├── world_engine.py  # 场景引擎（日程 + 天气 + 节假日）
+│   │   ├── event_engine.py  # 每日/随机/排期事件系统
+│   │   ├── mood_engine.py   # 心情计算（场景 + 事件 + 天气）
+│   │   ├── npc_engine.py    # NPC 激活与互动
+│   │   ├── weather.py       # Open-Meteo 天气（免费，无需 Key）
+│   │   ├── generator.py     # LLM 生成人物卡/NPC 卡
+│   │   └── holiday_calendar.py  # 中国节假日 + 节日日历
+│   ├── frontend/            # 初始化 Web 界面（首次创建角色）
+│   ├── data/                # 运行时数据（人物卡、世界状态、事件库）
+│   └── setup.py             # 独立启动器
 │
 └── ui/                      # UI 层（PyQt6）
     ├── main_window.py       # 主窗口（7 个功能标签页）

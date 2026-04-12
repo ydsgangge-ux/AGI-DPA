@@ -184,6 +184,18 @@ else
     fi
 fi
 
+# pydantic (SimLife 生活模拟模块依赖)
+if python3 -c "import pydantic" 2>/dev/null; then
+    echo " [OK] pydantic         - already installed"
+else
+    echo " [..] pydantic         - installing..."
+    if python3 -m pip install pydantic -q 2>/dev/null; then
+        echo " [OK] pydantic         - installed"
+    else
+        echo " [!!] pydantic         - FAILED"
+    fi
+fi
+
 echo ""
 if $OFFICE_OK; then
     echo " [OK] All Office dependencies ready (.docx .xlsx .pptx .pdf)."
