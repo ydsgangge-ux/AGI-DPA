@@ -8,8 +8,8 @@ echo "  ╔═══════════════════════
 echo "  ║       SimLife 生活模拟        ║"
 echo "  ╚═══════════════════════════════╝"
 echo ""
-echo "[SimLife] 启动中... (端口 8765)"
-echo "[SimLife] 浏览器将自动打开 http://127.0.0.1:8765"
+echo "[SimLife] 启动中... (端口 87659)"
+echo "[SimLife] 浏览器将自动打开 http://127.0.0.1:87659"
 echo ""
 
-python -m simlife.backend.main --port 8765
+python -m simlife.backend.main --port 8769

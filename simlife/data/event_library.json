@@ -204,5 +204,120 @@
       "今天天气特别好，午饭后在公司楼下转了一圈",
       "阳光很好，在阳台站了一会儿，感觉心情好了一些"
     ]
+  },
+  {
+    "id": "freelance_no_inspiration",
+    "label": "完全没灵感，对着屏幕发呆",
+    "trigger_condition": "",
+    "probability_per_day": 0.06,
+    "mood_delta": -10,
+    "consequences": [],
+    "log_templates": [
+      "坐在电脑前两个小时，一个字都没写出来",
+      "翻了好多参考图还是没感觉，干脆出去走走"
+    ],
+    "applicable_styles": ["freelance"]
+  },
+  {
+    "id": "freelance_client_deadline",
+    "label": "客户催稿了",
+    "trigger_condition": "",
+    "probability_per_day": 0.05,
+    "mood_delta": -15,
+    "consequences": [],
+    "log_templates": [
+      "客户又来催了，说后天一定要交",
+      "看了眼日历，突然发现截止日期就在明天"
+    ],
+    "applicable_styles": ["freelance"]
+  },
+  {
+    "id": "freelance_good_feedback",
+    "label": "作品收到了很好的反馈",
+    "trigger_condition": "",
+    "probability_per_day": 0.04,
+    "mood_delta": 20,
+    "consequences": [],
+    "log_templates": [
+      "发了新作品，评论里好多人在夸",
+      "一个粉丝私信说被自己的作品打动了，开心了一整天"
+    ],
+    "applicable_styles": ["freelance"]
+  },
+  {
+    "id": "freelance_new_project",
+    "label": "接到一个新项目",
+    "trigger_condition": "",
+    "probability_per_day": 0.04,
+    "mood_delta": 15,
+    "consequences": [],
+    "log_templates": [
+      "一个老客户介绍了新项目过来，这次预算还不错",
+      "有人在社交平台私信想合作，聊了聊挺有意思的"
+    ],
+    "applicable_styles": ["freelance"]
+  },
+  {
+    "id": "freelance_payment_received",
+    "label": "收到了一笔尾款",
+    "trigger_condition": "",
+    "probability_per_day": 0.03,
+    "mood_delta": 18,
+    "consequences": [],
+    "log_templates": [
+      "收到了上个月的尾款，这个月不用吃土了",
+      "看了眼银行卡余额，松了口气"
+    ],
+    "applicable_styles": ["freelance"]
+  },
+  {
+    "id": "freelance_lonely_day",
+    "label": "一个人在家工作太安静了",
+    "trigger_condition": "",
+    "probability_per_day": 0.04,
+    "mood_delta": -8,
+    "consequences": [],
+    "log_templates": [
+      "一整天没跟任何人说话，有点不习惯",
+      "在家待了三天了，决定明天去咖啡馆换换环境"
+    ],
+    "applicable_styles": ["freelance"]
+  },
+  {
+    "id": "goal_progress",
+    "label": "人生目标有了小进展",
+    "trigger_condition": "",
+    "probability_per_day": 0.05,
+    "mood_delta": 12,
+    "consequences": [],
+    "log_templates": [
+      "坚持了好多天终于有了点进步",
+      "突然发现自己的某项技能比上个月好了一些",
+      "完成了一个小里程碑，给自己买了杯奶茶庆祝"
+    ]
+  },
+  {
+    "id": "goal_setback",
+    "label": "计划被打乱了",
+    "trigger_condition": "",
+    "probability_per_day": 0.03,
+    "mood_delta": -8,
+    "consequences": [],
+    "log_templates": [
+      "原计划今天要去练的，结果有事耽搁了",
+      "坚持了好久的习惯断了一天，有点沮丧"
+    ]
+  },
+  {
+    "id": "goal_new_idea",
+    "label": "突然想学个新东西",
+    "trigger_condition": "",
+    "probability_per_day": 0.03,
+    "mood_delta": 5,
+    "consequences": [],
+    "log_templates": [
+      "刷到一个很酷的教程，想学但怕自己坚持不下来",
+      "看到别人的作品突然燃起了学画画的冲动"
+    ]
   }
 ]

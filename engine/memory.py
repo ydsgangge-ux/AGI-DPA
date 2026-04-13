@@ -256,6 +256,30 @@ class MemoryStore:
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[:top_k]
 
+    def get_recent(
+        self,
+        top_k: int = 6,
+        level: Optional[MemoryLevel] = None,
+        user_id: Optional[str] = None
+    ) -> List[MemoryNode]:
+        """按时间倒序获取最近存储的记忆（不依赖语义匹配）"""
+        conditions = []
+        params: list = []
+        if level:
+            conditions.append("level=?")
+            params.append(level.value)
+        if user_id:
+            conditions.append("user_id=?")
+            params.append(user_id)
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        with guarded_connect(self.db_path) as conn:
+            rows = conn.execute(
+                f"SELECT * FROM memories {where} "
+                f"ORDER BY created_at DESC LIMIT ?",
+                (*params, top_k)
+            ).fetchall()
+        return [self._row_to_node(r) for r in rows if r]
+
     def search_by_level(
         self, query: str, level: MemoryLevel, top_k: int = 3,
         user_id: Optional[str] = None

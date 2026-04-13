@@ -115,6 +115,58 @@ def read_file(path: str, encoding: str = "utf-8") -> Dict:
 
 
 @register_tool(
+    name="search_in_file",
+    description=(
+        "在指定文件中搜索关键词，返回匹配的行及其上下文。"
+        "适用于在已读文件中查找特定人物、事件、段落等细节。"
+    ),
+    parameters={
+        "path": {"type": "string", "description": "文件路径（绝对路径或相对路径）", "required": True},
+        "keyword": {"type": "string", "description": "要搜索的关键词", "required": True},
+        "encoding": {"type": "string", "description": "编码格式，默认 utf-8"},
+        "context_lines": {"type": "integer", "description": "返回匹配行前后各几行上下文，默认 3"}
+    },
+    risk="low"
+)
+def search_in_file(path: str, keyword: str, encoding: str = "utf-8",
+                   context_lines: int = 3) -> Dict:
+    try:
+        path = os.path.expanduser(path)
+        with open(path, "r", encoding=encoding, errors="replace") as f:
+            lines = f.readlines()
+
+        matches = []
+        for i, line in enumerate(lines):
+            if keyword in line:
+                start = max(0, i - context_lines)
+                end = min(len(lines), i + context_lines + 1)
+                context = "".join(lines[start:end]).rstrip()
+                matches.append({
+                    "line_number": i + 1,
+                    "line": line.rstrip(),
+                    "context": context
+                })
+
+        total_chars = sum(len(m["context"]) for m in matches)
+        # 截断过长的结果
+        if total_chars > 8000:
+            for m in matches:
+                m["context"] = m["context"][:500]
+            matches = matches[:20]
+
+        return {
+            "ok": True,
+            "path": path,
+            "keyword": keyword,
+            "total_lines": len(lines),
+            "match_count": len(matches),
+            "matches": matches
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@register_tool(
     name="write_file",
     description="写入内容到文件。路径不填则默认保存到桌面。支持相对路径和绝对路径",
     parameters={
@@ -338,17 +390,20 @@ def run_command(command: str, cwd: str = None, timeout: int = 30) -> Dict:
             command,
             shell=True,
             capture_output=True,
-            text=True,
             cwd=cwd,
             timeout=timeout,
-            encoding="utf-8",
-            errors="replace"
         )
+        def _safe_decode(data: bytes) -> str:
+            try:
+                return data.decode("utf-8", errors="replace")
+            except Exception:
+                return data.decode("utf-8", errors="replace")
+
         return {
             "ok": True,
             "returncode": result.returncode,
-            "stdout": result.stdout[-5000:] if result.stdout else "",
-            "stderr": result.stderr[-2000:] if result.stderr else "",
+            "stdout": _safe_decode(result.stdout)[-5000:] if result.stdout else "",
+            "stderr": _safe_decode(result.stderr)[-2000:] if result.stderr else "",
             "command": command
         }
     except subprocess.TimeoutExpired:
@@ -372,20 +427,35 @@ def run_python(code: str, cwd: str = None) -> Dict:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py',
                                          delete=False, encoding='utf-8') as f:
             f.write(code)
-            tmp_path = f.name
+        tmp_path = f.name
+        # Windows 兼容：优先 python3，回退 python
+        python_cmd = "python3" if shutil.which("python3") else "python"
         result = subprocess.run(
-            ["python3", tmp_path],
-            capture_output=True, text=True,
+            [python_cmd, tmp_path],
+            capture_output=True,
             cwd=cwd, timeout=30,
-            encoding="utf-8", errors="replace"
         )
         os.unlink(tmp_path)
+        # 手动解码：优先 utf-8，失败则按系统默认编码（Windows GBK）
+        def _safe_decode(data: bytes) -> str:
+            try:
+                return data.decode("utf-8", errors="replace")
+            except Exception:
+                return data.decode("utf-8", errors="replace")
+
+        success = result.returncode == 0
         return {
-            "ok": True,
+            "ok": success,
             "returncode": result.returncode,
-            "stdout": result.stdout[-5000:],
-            "stderr": result.stderr[-2000:]
+            "stdout": _safe_decode(result.stdout)[-5000:] if result.stdout else "",
+            "stderr": _safe_decode(result.stderr)[-2000:] if result.stderr else "",
         }
+    except subprocess.TimeoutExpired:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        return {"ok": False, "error": "脚本执行超时（30秒）"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
@@ -1163,15 +1233,27 @@ def get_news_sources(country: str = "", language: str = "", category: str = "") 
         "prompt": {"type": "string", "description": "英文画面描述，如 'a cat sitting on a rainbow, digital art'", "required": True},
         "width": {"type": "integer", "description": "图片宽度（像素），默认 1024"},
         "height": {"type": "integer", "description": "图片高度（像素），默认 1024"},
+        "use_simlife_scene": {"type": "boolean", "description": "是否使用 SimLife 当前场景作为背景（拍照/自拍时设为 true），默认 false"},
     },
     risk="low"
 )
-def generate_image(prompt: str, width: int = 1024, height: int = 1024) -> Dict:
+def generate_image(prompt: str, width: int = 1024, height: int = 1024, use_simlife_scene: bool = False) -> Dict:
     try:
         from engine.image_gen import generate_image_url, download_image, get_image_dir
         from pathlib import Path
         from datetime import datetime
         import uuid
+
+        # 如果请求使用 SimLife 场景，尝试获取当前状态并融入 prompt
+        if use_simlife_scene:
+            try:
+                from engine.simlife_client import SimLifeClient
+                _sl = SimLifeClient()
+                sl_ctx = _sl.format_for_prompt()
+                if sl_ctx:
+                    prompt = f"{prompt}, based on current life scene context"
+            except Exception:
+                pass
 
         url = generate_image_url(prompt, width=width, height=height)
         filename = f"tool_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.png"
@@ -1188,6 +1270,114 @@ def generate_image(prompt: str, width: int = 1024, height: int = 1024) -> Dict:
             }
         else:
             return {"ok": False, "error": "图片生成或下载失败"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+# ═══════════════════════════════════════════════════
+# Everything 全盘搜索工具（Windows）
+# ═══════════════════════════════════════════════════
+
+_ES_PATHS = [
+    r"C:\Program Files\Everything\es.exe",
+    r"C:\Program Files (x86)\Everything\es.exe",
+    str(Path(__file__).parent / "es.exe"),
+]
+_es_exe_cache: Optional[str] = None
+
+
+def _find_es_exe() -> Optional[str]:
+    """查找 es.exe 路径（结果缓存，失败时缓存空字符串）"""
+    global _es_exe_cache
+    if _es_exe_cache is not None:
+        return _es_exe_cache
+
+    # 1. 在 PATH 里找
+    es_in_path = shutil.which("es")
+    if es_in_path:
+        _es_exe_cache = es_in_path
+        return _es_exe_cache
+
+    # 2. 检查固定路径
+    for p in _ES_PATHS:
+        if os.path.isfile(p):
+            _es_exe_cache = p
+            return _es_exe_cache
+
+    # 3. 缓存失败结果
+    _es_exe_cache = ""
+    return ""
+
+
+def _reset_es_cache():
+    """重置 es.exe 查找缓存（安装 es.exe 后调用）"""
+    global _es_exe_cache
+    _es_exe_cache = None
+
+
+@register_tool(
+    name="everything_search",
+    description=(
+        "使用 Everything 进行毫秒级全盘文件搜索（比系统搜索快百倍）。"
+        "需要安装 Everything 并将 es.exe 放到 PATH 或 Everything 安装目录。"
+        "支持通配符，如 *.py、report*.docx"
+    ),
+    parameters={
+        "query":       {"type": "string", "description": "搜索关键词或通配符，如 *.py、report*.docx", "required": True},
+        "max_results": {"type": "integer", "description": "最多返回条数，默认 20"},
+        "search_path": {"type": "string", "description": "限定搜索目录（如 D:\\Projects），留空表示全盘"},
+    },
+    risk="low"
+)
+def everything_search(query: str, max_results: int = 20, search_path: str = "") -> Dict:
+    try:
+        es = _find_es_exe()
+        # 如果之前缓存了失败，重新查找（es.exe 可能是后来安装的）
+        if not es:
+            _reset_es_cache()
+            es = _find_es_exe()
+        if not es:
+            return {
+                "ok": False,
+                "error": (
+                    "未找到 es.exe。请安装 Everything (https://www.voidtools.com) "
+                    "并下载 es.exe (https://www.voidtools.com/es.zip) "
+                    "放到 Everything 安装目录或 PATH 中。"
+                    "\n\nes.exe not found. Install Everything and put es.exe "
+                    "in the Everything directory or PATH."
+                ),
+            }
+
+        cmd = [es, "-n", str(max_results), "-full-path-and-name"]
+        if search_path:
+            cmd.append("-path")
+            cmd.append(search_path)
+        cmd.append(query)
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+        if result.returncode != 0:
+            stderr = result.stderr.strip()
+            return {"ok": False, "error": stderr or "es.exe 执行失败"}
+
+        lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
+        return {
+            "ok": True,
+            "results": lines,
+            "count": len(lines),
+            "query": query,
+            "search_path": search_path or "(全盘)",
+        }
+
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "搜索超时（5秒）/ Search timed out (5s)"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
@@ -1373,6 +1563,7 @@ TOOL_DEPS = {
     "get_news_sources":["newsapi"],
     "read_article":    ["newspaper"],
     "get_trending":    ["httpx", "feedparser", "bs4"],
+    "everything_search": [],   # 依赖 es.exe 外部程序，非 Python 包
 }
 
 def check_tool_deps(tool_name: str) -> Dict:
@@ -1442,6 +1633,7 @@ def self_test(tool_name: str = None) -> List[Dict]:
         "open_application", "get_stock_info",
         "get_news", "get_news_sources",   # 需要 API Key
         "read_article",                    # 需要网络请求文章
+        "everything_search",               # 需要外部 es.exe
     }
 
     targets = [tool_name] if tool_name else list(safe_tests.keys())

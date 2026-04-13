@@ -1,6 +1,6 @@
 {
   "agidpa_data_path": "../",
-  "backend_port": 8765,
+  "backend_port": 8769,
   "tick_interval_seconds": 300,
   "llm_provider": "deepseek",
   "llm_api_key": "",

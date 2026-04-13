@@ -214,11 +214,11 @@ class EngineLoader(QThread):
                 from simlife.backend.main import app as simlife_app
                 import uvicorn as _uvicorn
                 def _run_simlife():
-                    _uvicorn.run(simlife_app, host="127.0.0.1", port=8765,
+                    _uvicorn.run(simlife_app, host="127.0.0.1", port=8769,
                                   log_level="warning", access_log=False)
                 _simlife_thread = threading.Thread(target=_run_simlife, daemon=True)
                 _simlife_thread.start()
-                print("[SimLife] 后端服务已在后台启动（端口 8765）")
+                print("[SimLife] 后端服务已在后台启动（端口 8769）")
             except Exception as e:
                 print(f"[SimLife] 后端自动启动失败（{e}），将回退到文件读取模式")
 
@@ -227,7 +227,7 @@ class EngineLoader(QThread):
                 print()
                 print("=" * 56)
                 print("  [SimLife] 生活模拟模块尚未初始化")
-                print("  请在浏览器中打开 http://127.0.0.1:8765")
+                print("  请在浏览器中打开 http://127.0.0.1:8769")
                 print("  填写基本信息后点击「开始生成」即可")
                 print("  初始化后重启本程序即可生效")
                 print("=" * 56)
@@ -518,18 +518,27 @@ class AGIApp:
             return
         personality_dict = self.agent.personality.to_dict()
 
+        # 获取 SimLife 当前状态，传给图片生成器
+        simlife_context = ""
+        if self.agent.simlife:
+            try:
+                simlife_context = self.agent.simlife.format_for_prompt()
+            except Exception:
+                pass
+
         class _ImageGenWorker(QThread):
             done = pyqtSignal(str, str)   # (image_path, caption)
             fail = pyqtSignal(str)
 
-            def __init__(self, personality_dict):
+            def __init__(self, personality_dict, simlife_ctx):
                 super().__init__()
                 self.personality_dict = personality_dict
+                self.simlife_ctx = simlife_ctx
 
             def run(self):
                 try:
                     from engine.image_gen import generate_and_download
-                    result = generate_and_download(self.personality_dict)
+                    result = generate_and_download(self.personality_dict, simlife_context=self.simlife_ctx)
                     if result:
                         prompt, image_path, image_type = result
                         caption = self._make_caption(image_type)
@@ -561,7 +570,7 @@ class AGIApp:
                     ]
                 return random.choice(captions)
 
-        self._image_worker = _ImageGenWorker(personality_dict)
+        self._image_worker = _ImageGenWorker(personality_dict, simlife_context)
         self._image_worker.done.connect(self._on_image_generated)
         self._image_worker.fail.connect(lambda e: print(f"[图片生成] 失败: {e}"))
         self._image_worker.start()

@@ -1,6 +1,6 @@
 """
 SimLife FastAPI 后端入口
-端口 8765
+端口 8769
 """
 import json
 import sys
@@ -477,7 +477,7 @@ def on_startup():
     print("[SimLife] 后台定时 tick 已启动（每 3 分钟）")
 
 
-def run_server(port: int = 8765, open_browser: bool = True):
+def run_server(port: int = 87659, open_browser: bool = True):
     """启动服务器"""
     import uvicorn
 
@@ -495,7 +495,7 @@ def run_server(port: int = 8765, open_browser: bool = True):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="SimLife 后端")
-    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--port", type=int, default=8769)
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
     run_server(port=args.port, open_browser=not args.no_browser)

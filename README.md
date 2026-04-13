@@ -110,7 +110,7 @@ agi_app/
 │
 ├── simlife/                 # SimLife Virtual Life Simulation
 │   ├── backend/             # FastAPI backend (auto-starts with main app)
-│   │   ├── main.py          # Server entry + API routes (port 8765)
+│   │   ├── main.py          # Server entry + API routes (port 8769)
 │   │   ├── world_engine.py  # Scene engine (schedule + weather + holidays)
 │   │   ├── event_engine.py  # Daily/random/scheduled event system
 │   │   ├── mood_engine.py   # Mood calculation (scene + events + weather)

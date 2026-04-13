@@ -46,6 +46,9 @@ main_patch.txt
 # Screenshots / temp assets
 screenshot_*.png
 
+# Everything CLI (external binary, users download separately)
+engine/es.exe
+
 # SimLife runtime data (personal, generated on first setup)
 simlife/data/world_state.json
 simlife/data/character_card.json

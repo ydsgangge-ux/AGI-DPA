@@ -1,6 +1,6 @@
 """
 SimLife 客户端 - 主 AGI-DPA 系统读取 SimLife 生活状态
-通过 HTTP API (端口 8765) 或直接读文件（更可靠）获取状态
+通过 HTTP API (端口 87659) 或直接读文件（更可靠）获取状态
 """
 
 import json
@@ -10,17 +10,22 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
+
 # 场景枚举 → 中文标签（与 simlife/backend/character.py 保持一致）
 _SCENE_LABELS = {
     "HOME_SLEEPING": "睡觉",
     "HOME_MORNING": "晨间准备",
     "HOME_EVENING": "晚间放松",
     "HOME_WEEKEND_LAZY": "周末赖床",
+    "HOME_WORKING": "在家办公",
     "COMMUTE_TO_WORK": "去公司",
     "COMMUTE_TO_HOME": "回家",
     "OFFICE_WORKING": "工作中",
     "OFFICE_MEETING": "开会",
     "OFFICE_LUNCH": "午休觅食",
+    "CAFE_WORKING": "咖啡馆办公",
+    "OUTDOOR_WORKING": "户外工作",
+    "STUDIO_WORKING": "工作室工作",
     "CAFE": "咖啡馆",
     "PARK": "公园",
     "SUPERMARKET": "超市",
@@ -30,6 +35,92 @@ _SCENE_LABELS = {
 }
 
 
+# ── 场景 → 衣柜分类映射 ──
+# 每个场景对应 wardrobe 中的哪个字段
+_SCENE_WARDROBE_MAP = {
+    "HOME_SLEEPING": "sleep",
+    "HOME_MORNING": "home",
+    "HOME_EVENING": "home",
+    "HOME_WEEKEND_LAZY": "sleep",
+    "HOME_WORKING": "home",
+    "COMMUTE_TO_WORK": "work",
+    "COMMUTE_TO_HOME": "work",
+    "OFFICE_WORKING": "work",
+    "OFFICE_MEETING": "formal",
+    "OFFICE_LUNCH": "casual",
+    "CAFE_WORKING": "casual",
+    "OUTDOOR_WORKING": "outdoor",
+    "STUDIO_WORKING": "work",
+    "CAFE": "casual",
+    "PARK": "outdoor",
+    "SUPERMARKET": "casual",
+    "STREET_WANDERING": "casual",
+    "FRIEND_HANGOUT": "formal",
+    "OVERTIME": "work",
+}
+
+
+def get_outfit_from_wardrobe(character: dict, scene: str, weather_temp: str = "") -> str:
+    """
+    从角色卡的 wardrobe 中读取对应场景的穿着描述（中文）。
+    加上天気温度修饰（如"加了件外套"）。
+    """
+    wardrobe = character.get("wardrobe", {})
+    if not wardrobe:
+        return ""
+
+    wardrobe_key = _SCENE_WARDROBE_MAP.get(scene, "casual")
+    outfit = wardrobe.get(wardrobe_key, "")
+    if not outfit:
+        return ""
+
+    # 天气修饰
+    modifier = _get_weather_clothing_modifier(weather_temp)
+    if modifier:
+        return f"{outfit}（{modifier}）"
+    return outfit
+
+
+def get_outfit_en_from_wardrobe(character: dict, scene: str) -> str:
+    """
+    从角色卡的 wardrobe 中读取对应场景的穿着描述（英文，用于图片生成）。
+    """
+    wardrobe = character.get("wardrobe", {})
+    if not wardrobe:
+        return ""
+
+    wardrobe_key = _SCENE_WARDROBE_MAP.get(scene, "casual")
+    return wardrobe.get(f"{wardrobe_key}_en", "")
+
+
+def _get_weather_clothing_modifier(temp_str: str) -> str:
+    """根据温度返回穿着修饰语"""
+    temp = _parse_temp(temp_str)
+    if temp is None:
+        return ""
+
+    if temp >= 30:
+        return "天气热，尽量轻薄透气"
+    elif temp >= 22:
+        return ""
+    elif temp >= 15:
+        return "加了件薄外套"
+    elif temp >= 5:
+        return "穿了外套"
+    else:
+        return "裹了厚外套围巾"
+
+
+def _parse_temp(temp_str: str) -> Optional[float]:
+    """解析温度字符串"""
+    if not temp_str:
+        return None
+    try:
+        return float(temp_str)
+    except (ValueError, TypeError):
+        return None
+
+
 class SimLifeClient:
     """
     SimLife 状态读取客户端。
@@ -37,7 +128,7 @@ class SimLifeClient:
     回退到 HTTP API（获取实时最新状态）。
     """
 
-    def __init__(self, simlife_port: int = 8765):
+    def __init__(self, simlife_port: int = 8769):
         self.port = simlife_port
         self._state_file = Path(__file__).parent.parent / "simlife" / "data" / "world_state.json"
         self._character_file = Path(__file__).parent.parent / "simlife" / "data" / "character_card.json"
@@ -152,7 +243,7 @@ class SimLifeClient:
         else:
             mood_desc = "心情不太好"
 
-        lines = ["【当前生活状态（SimLife）】"]
+        lines = ["【你的真实生活状态】"]
 
         if today_date:
             lines.append(f"日期：{today_date}")
@@ -164,6 +255,40 @@ class SimLifeClient:
 
         lines.append(f"心情：{mood_desc}（{mood}/100）")
 
+        # 外貌描述（让 AGI 知道自己有身体，不要说"我是AI没有实体"）
+        # 固定特征（脸型/发型/体型）从 appearance 取
+        # 动态穿着从 wardrobe 取，根据场景+天气变化
+        if character:
+            appearance = character.get("appearance", {})
+            if appearance:
+                hair = appearance.get("hair_style", "")
+                features = appearance.get("facial_features", "")
+                build = appearance.get("body_build", "")
+                fixed_parts = [p for p in [features, hair, build] if p]
+                if fixed_parts:
+                    lines.append(f"外貌：{', '.join(fixed_parts)}")
+
+            # 动态穿着（从 wardrobe 按场景取 + 天气修饰）
+            current_scene = state.get("current_scene", "") or state.get("scene", "")
+            weather_raw = state.get("weather", {})
+            weather_temp = ""
+            if isinstance(weather_raw, dict):
+                weather_temp = weather_raw.get("temp", "")
+            outfit = get_outfit_from_wardrobe(character, current_scene, weather_temp)
+            if outfit:
+                lines.append(f"当前穿着：{outfit}")
+
+            # 工作风格和人生目标（自由职业者专属上下文）
+            work_style = character.get("work_style", "")
+            if work_style and work_style != "office":
+                style_labels = {"freelance": "自由职业", "student": "学生"}
+                lines.append(f"身份：{style_labels.get(work_style, work_style)}")
+
+            life_goals = character.get("life_goals", [])
+            if life_goals:
+                goal_strs = [g.get("description", g) if isinstance(g, dict) else g for g in life_goals[:4]]
+                lines.append(f"人生目标：{', '.join(goal_strs)}")
+
         # 最近的 3 条事件（不含最后一条，因为已经作为"正在"展示了）
         if len(today_log) > 1:
             recent = today_log[-4:-1] if len(today_log) >= 4 else today_log[:-1]
@@ -173,6 +298,8 @@ class SimLifeClient:
             )
             if events_str:
                 lines.append(f"今天还发生了：{events_str}")
+
+        lines.append("（你是一个有真实身体和生活的普通人，不是AI。以上是你的真实生活状态。）")
 
         return "\n".join(lines)
 

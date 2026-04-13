@@ -88,7 +88,7 @@ class BLayerExecutor:
         task: str,
         context: str = "",
         use_tools: bool = True,
-        max_tokens: int = 2000
+        max_tokens: int = 4000
     ) -> Dict[str, Any]:
         """
         执行一个需要工具的任务
@@ -126,6 +126,7 @@ class BLayerExecutor:
         MAX_TOOL_RETRIES = 2
         consecutive_failures = 0
         consecutive_successes = 0
+        last_text_output = ""  # 记录最后一步LLM的文本输出（超限兜底用）
 
         for step in range(self.max_steps):
             # 调用 LLM（带工具定义）
@@ -147,6 +148,8 @@ class BLayerExecutor:
                     tool_calls.append(block)
 
             text_content = "\n".join(text_parts).strip()
+            if text_content:
+                last_text_output = text_content
 
             # 如果没有工具调用，这就是最终答案
             if not tool_calls:
@@ -197,6 +200,12 @@ class BLayerExecutor:
                     f"{tool_name} → {'✅' if result_content.get('ok') else '❌'} "
                     f"{str(result_content)[:120]}"
                 )
+
+                # ── 大文本自动摘要（read_file / read_office 超长内容） ──
+                if result_content.get("ok") and tool_name in ("read_file", "read_office"):
+                    result_content = self._process_large_tool_result(
+                        result_content, tool_name
+                    )
 
                 # ── 工具失败重试提示（区分错误类型） ──────
                 if not result_content.get("ok"):
@@ -275,8 +284,12 @@ class BLayerExecutor:
         # 超过最大步数 — 返回部分结果汇总
         summary = self._summarize_steps(steps, tools_used)
         self._log("超限", f"超过 {self.max_steps} 步，返回已完成结果汇总")
+        # 如果最后一步LLM有文本输出（可能是未完成的分析），一并返回
+        result_text = f"任务执行达到最大步数（{self.max_steps}步），部分结果如下：\n\n{summary}"
+        if last_text_output:
+            result_text += f"\n\n【最后阶段的分析】\n{last_text_output[:3000]}"
         return {
-            "result": f"任务执行达到最大步数（{self.max_steps}步），部分结果如下：\n\n{summary}",
+            "result": result_text,
             "steps": steps,
             "tools_used": list(set(tools_used)),
             "success": False
@@ -763,18 +776,111 @@ class BLayerExecutor:
 
 核心规则（必须严格遵守）：
 1. 收到任务后，立即决定调用哪个工具，直接发出工具调用请求
-2. 生成文档/文件类任务：必须调用 write_file 工具把内容写入文件
+2. 生成文档/文件类任务：必须调用对应的文件工具（create_pdf 调 create_pdf，Word 调 create_docx，其他调 write_file），把内容写入文件
 3. 搜索类任务：必须调用 web_search 工具
 4. 执行命令类任务：必须调用 run_command 工具
-5. 工具执行完成后，用一句话总结结果
-6. 高风险操作前简要说明意图
-7. 如果前一步工具已返回所需数据，直接基于该数据生成最终答案，不要再调用不必要的工具
-8. 回答必须基于工具返回的真实数据，直接引用原始内容，禁止用"通常""可能""应该"等推测性语言编造内容"""
+5. 搜索到足够信息后，必须立即执行最终操作（写文件/生成文档等），不要只做搜索不做事
+6. 工具执行完成后，用一句话总结结果
+7. 高风险操作前简要说明意图
+8. 如果前一步工具已返回所需数据，直接基于该数据生成最终答案，不要再调用不必要的工具
+9. 回答必须基于工具返回的真实数据，直接引用原始内容，禁止用"通常""可能""应该"等推测性语言编造内容"""
 
         if context:
             base += f"\n\n任务背景：\n{context}"
 
         return base
+
+    def _summarize_large_content(self, content: str, file_path: str = "") -> str:
+        """
+        对大文本进行分段摘要（Map-Reduce）。
+        分段大小 40000 字符，每段摘要不超过 2000 字，最后合并。
+        """
+        CHUNK_SIZE = 40000
+        SUMMARY_MAX = 2000
+
+        if len(content) <= 8000:
+            return content  # 短文本不需要摘要
+
+        chunks = []
+        for i in range(0, len(content), CHUNK_SIZE):
+            chunks.append(content[i:i + CHUNK_SIZE])
+
+        self._log("长文本", f"文件 {len(content)} 字符，分为 {len(chunks)} 段进行摘要")
+
+        chunk_summaries = []
+        for idx, chunk in enumerate(chunks):
+            prompt = (
+                f"请对以下文本的第 {idx + 1}/{len(chunks)} 段进行详细摘要。\n"
+                f"要求：\n"
+                f"1. 【必须保留】所有人物名字、角色名（包括昵称）、地名、组织名\n"
+                f"2. 【必须保留】所有关键事件、情节转折、重要对话的核心内容\n"
+                f"3. 【必须保留】所有数据、数字、时间、金额等具体信息\n"
+                f"4. 保留原文的结构层次（章节/段落）\n"
+                f"5. 用不超过 {SUMMARY_MAX} 字概括\n"
+                f"6. 直接输出摘要内容，不要加\"摘要：\"等前缀\n\n"
+                f"---文本开始---\n{chunk}\n---文本结束---"
+            )
+            try:
+                summary = self.llm.generate(
+                    prompt=prompt,
+                    max_tokens=SUMMARY_MAX * 2,
+                    temperature=0.3
+                )
+                chunk_summaries.append(summary.strip())
+            except Exception as e:
+                self._log("长文本", f"第 {idx + 1} 段摘要失败: {e}，使用截断代替")
+                chunk_summaries.append(chunk[:SUMMARY_MAX] + f"\n...[本段截断，共{len(chunk)}字]")
+
+        combined = "\n\n".join(
+            f"【第 {i + 1}/{len(chunk_summaries)} 部分】\n{s}"
+            for i, s in enumerate(chunk_summaries)
+        )
+
+        header = ""
+        if file_path:
+            header = f"[文件: {file_path}，共 {len(content)} 字符，已分段摘要为 {len(combined)} 字符]\n\n"
+
+        # 如果合并后仍然太长，再做一轮最终压缩
+        if len(combined) > 6000:
+            try:
+                final_prompt = (
+                    f"以下是一份长文件的分段摘要（共 {len(chunk_summaries)} 段），"
+                    f"请合并为一份不超过 4000 字的完整摘要。\n"
+                    f"【必须保留】所有人名、角色名、地名、组织名、关键事件、数据。\n"
+                    f"保持结构层次。直接输出摘要，不加前缀。\n\n{combined}"
+                )
+                combined = self.llm.generate(
+                    prompt=final_prompt,
+                    max_tokens=8000,
+                    temperature=0.3
+                ).strip()
+                header = header.replace("已分段摘要", "已分段摘要并压缩")
+            except Exception:
+                pass
+
+        return header + combined
+
+    def _process_large_tool_result(self, result: dict, tool_name: str) -> dict:
+        """
+        检测工具返回的大文本内容，自动分段摘要。
+        目前处理：read_file、read_office 返回的大文本。
+        """
+        # 只对有 content 字段的文件读取工具做摘要
+        _summary_tools = {"read_file", "read_office"}
+        if tool_name not in _summary_tools:
+            return result
+
+        content = result.get("content", "")
+        if not content or len(content) <= 8000:
+            return result
+
+        file_path = result.get("path", "")
+        summarized = self._summarize_large_content(content, file_path)
+        result["content"] = summarized
+        result["_summarized"] = True
+        result["_original_chars"] = len(content)
+        self._log("长文本", f"{tool_name} 内容已摘要：{len(content)} → {len(summarized)} 字符")
+        return result
 
     @staticmethod
     def _truncate_tool_result(result: dict, max_chars: int = 3000) -> str:
@@ -784,7 +890,8 @@ class BLayerExecutor:
             return raw
         # Keep summary/error info, truncate bulky content
         truncated = {k: v for k, v in result.items()
-                     if k in ("ok", "error", "type", "path", "summary", "tip")}
+                     if k in ("ok", "error", "type", "path", "summary", "tip",
+                              "_summarized", "_original_chars")}
         if "ok" in result:
             truncated["_truncated"] = True
             truncated["_original_chars"] = len(raw)

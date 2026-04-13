@@ -23,11 +23,11 @@ if not defined PYTHON_CMD (
     exit /b 1
 )
 
-echo [SimLife] Starting on port 8765...
-echo [SimLife] Browser will open http://127.0.0.1:8765
+echo [SimLife] Starting on port 87659...
+echo [SimLife] Browser will open http://127.0.0.1:87659
 echo.
 echo Press Ctrl+C to stop
 echo.
 
-%PYTHON_CMD% -m simlife.backend.main --port 8765
+%PYTHON_CMD% -m simlife.backend.main --port 8769
 pause

@@ -356,11 +356,15 @@ class Renderer {
       'HOME_MORNING': '#1a1520',
       'HOME_EVENING': '#1a1a2e',
       'HOME_WEEKEND_LAZY': '#1a1520',
+      'HOME_WORKING': '#2a2535',
       'COMMUTE_TO_WORK': '#3a4a5a',
       'COMMUTE_TO_HOME': '#2a3a4a',
       'OFFICE_WORKING': '#f5f5f0',
       'OFFICE_MEETING': '#f5f5f0',
       'OFFICE_LUNCH': '#e8e8e0',
+      'CAFE_WORKING': '#f0e8d0',
+      'OUTDOOR_WORKING': '#87CEEB',
+      'STUDIO_WORKING': '#3a3545',
       'CAFE': '#f0e8d8',
       'PARK': '#87CEEB',
       'SUPERMARKET': '#f0f0e8',
@@ -377,11 +381,15 @@ class Renderer {
       'HOME_MORNING': { x: 360, y: 160 },
       'HOME_EVENING': { x: 280, y: 170 },
       'HOME_WEEKEND_LAZY': { x: 120, y: 135 },
+      'HOME_WORKING': { x: 260, y: 170 },
       'COMMUTE_TO_WORK': { x: 300, y: 200 },
       'COMMUTE_TO_HOME': { x: 300, y: 200 },
       'OFFICE_WORKING': { x: 240, y: 170 },
       'OFFICE_MEETING': { x: 360, y: 170 },
       'OFFICE_LUNCH': { x: 400, y: 200 },
+      'CAFE_WORKING': { x: 320, y: 180 },
+      'OUTDOOR_WORKING': { x: 300, y: 210 },
+      'STUDIO_WORKING': { x: 280, y: 170 },
       'CAFE': { x: 320, y: 180 },
       'PARK': { x: 300, y: 210 },
       'SUPERMARKET': { x: 320, y: 210 },
@@ -398,11 +406,15 @@ class Renderer {
       'HOME_MORNING': 'stand',
       'HOME_EVENING': 'sit',
       'HOME_WEEKEND_LAZY': 'sleep',
+      'HOME_WORKING': 'work',
       'COMMUTE_TO_WORK': 'walk',
       'COMMUTE_TO_HOME': 'walk',
       'OFFICE_WORKING': 'work',
       'OFFICE_MEETING': 'stand',
       'OFFICE_LUNCH': 'walk',
+      'CAFE_WORKING': 'work',
+      'OUTDOOR_WORKING': 'work',
+      'STUDIO_WORKING': 'work',
       'CAFE': 'sit',
       'PARK': 'walk',
       'SUPERMARKET': 'walk',
@@ -418,6 +430,7 @@ class Renderer {
       'OFFICE_WORKING': [{ x: 320, y: 170 }, { x: 400, y: 170 }],
       'OFFICE_LUNCH': [{ x: 440, y: 200 }],
       'CAFE': [{ x: 280, y: 180 }],
+      'CAFE_WORKING': [{ x: 280, y: 180 }],
       'FRIEND_HANGOUT': [{ x: 360, y: 190 }],
     };
     return npcPosMap[scene] || [];
@@ -1021,6 +1034,150 @@ const SCENE_RENDERERS = {
     for (let i = 0; i < 12; i++) {
       c.fillRect(30 + i * 50 + Math.random() * 20, 40 + Math.random() * 60, 3, 3);
     }
+  },
+
+  // ── 自由职业场景 ──
+
+  HOME_WORKING(r) {
+    const c = r.ctx;
+    // 温暖室内色调
+    const wg = c.createLinearGradient(0, 0, 0, 220);
+    wg.addColorStop(0, '#2a2535'); wg.addColorStop(1, '#352a3a');
+    c.fillStyle = wg; c.fillRect(0, 0, W, 220);
+    // 地板
+    c.fillStyle = '#3a3040'; c.fillRect(0, 220, W, H - 220);
+    // 窗户 — 日间
+    c.fillStyle = '#87CEEB';
+    c.globalAlpha = 0.6;
+    c.fillRect(380, 30, 120, 100);
+    c.globalAlpha = 1;
+    c.strokeStyle = '#4a4050'; c.lineWidth = 3;
+    c.strokeRect(380, 30, 120, 100);
+    c.beginPath(); c.moveTo(440, 30); c.lineTo(440, 130); c.stroke();
+    c.beginPath(); c.moveTo(380, 80); c.lineTo(500, 80); c.stroke();
+    // 书桌
+    r.roundRect(180, 150, 200, 60, 4, '#5a4a5a');
+    r.roundRect(180, 146, 200, 8, 4, '#6a5a6a');
+    // 笔记本电脑
+    r.roundRect(220, 140, 60, 40, 2, '#333');
+    r.roundRect(222, 142, 56, 28, 1, '#4488cc');
+    // 键盘
+    r.roundRect(290, 155, 50, 30, 2, '#444');
+    c.fillStyle = '#555';
+    c.fillRect(295, 158, 40, 2);
+    // 咖啡杯
+    c.fillStyle = '#e8d8c8';
+    c.fillRect(350, 158, 14, 16);
+    c.fillStyle = '#6a4a3a';
+    c.fillRect(352, 160, 10, 8);
+    // 绿植（窗台）
+    c.fillStyle = '#4a6a3a';
+    c.beginPath(); c.arc(395, 130, 10, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#5a3a3a';
+    c.fillRect(393, 135, 4, 8);
+    // 书架
+    r.roundRect(20, 60, 100, 150, 3, '#4a3a4a');
+    for (let i = 0; i < 3; i++) {
+      c.fillStyle = '#5a4a5a';
+      c.fillRect(25, 80 + i * 45, 90, 3);
+      // 书
+      const colors = ['#c06060', '#6060c0', '#60c060', '#c0a060', '#a060c0'];
+      for (let j = 0; j < 4; j++) {
+        c.fillStyle = colors[(i * 4 + j) % colors.length];
+        c.fillRect(28 + j * 20, 65 + i * 45, 14, 14);
+      }
+    }
+  },
+
+  CAFE_WORKING(r) {
+    SCENE_RENDERERS.CAFE(r);
+    const c = r.ctx;
+    // 笔记本电脑
+    r.roundRect(260, 155, 55, 35, 2, '#333');
+    r.roundRect(262, 157, 51, 24, 1, '#4488cc');
+    // 咖啡杯
+    c.fillStyle = '#e8d8c8';
+    c.fillRect(330, 158, 12, 14);
+    c.fillStyle = '#6a4a3a';
+    c.fillRect(332, 160, 8, 7);
+    // 小标签：工作中
+    c.fillStyle = 'rgba(100,80,60,0.5)';
+    c.font = '10px sans-serif';
+    c.fillText('工作模式', 270, 148);
+  },
+
+  OUTDOOR_WORKING(r) {
+    const c = r.ctx;
+    // 户外场景
+    c.fillStyle = '#87CEEB'; c.fillRect(0, 0, W, 180);
+    c.fillStyle = '#90c060'; c.fillRect(0, 180, W, 80);
+    c.fillStyle = '#70a050'; c.fillRect(0, 220, W, H - 220);
+    // 远处建筑
+    c.fillStyle = '#b0c0d0';
+    c.fillRect(0, 100, 80, 80);
+    c.fillRect(90, 120, 60, 60);
+    c.fillRect(450, 90, 70, 90);
+    c.fillRect(530, 130, 60, 50);
+    // 树
+    c.fillStyle = '#5a3a2a';
+    c.fillRect(150, 150, 8, 50);
+    c.fillStyle = '#4a8a3a';
+    c.beginPath(); c.arc(154, 135, 25, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#3a7a2a';
+    c.beginPath(); c.arc(145, 140, 18, 0, Math.PI * 2); c.fill();
+    // 另一棵树
+    c.fillStyle = '#5a3a2a';
+    c.fillRect(420, 160, 7, 40);
+    c.fillStyle = '#5a9a4a';
+    c.beginPath(); c.arc(423, 145, 20, 0, Math.PI * 2); c.fill();
+    // 相机/器材（地面）
+    r.roundRect(200, 200, 30, 20, 2, '#333');
+    c.fillStyle = '#555';
+    c.beginPath(); c.arc(225, 205, 8, 0, Math.PI * 2); c.fill();
+    // 小路
+    c.fillStyle = '#c0b0a0';
+    c.fillRect(0, 250, W, 20);
+    // 云
+    c.fillStyle = 'rgba(255,255,255,0.7)';
+    c.beginPath(); c.arc(100 + Math.sin(r.time * 0.005) * 20, 50, 25, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(125, 45, 18, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(350 + Math.sin(r.time * 0.003) * 15, 35, 22, 0, Math.PI * 2); c.fill();
+  },
+
+  STUDIO_WORKING(r) {
+    const c = r.ctx;
+    // 工作室 — 暗色调
+    const wg = c.createLinearGradient(0, 0, 0, 220);
+    wg.addColorStop(0, '#2a2530'); wg.addColorStop(1, '#352a35');
+    c.fillStyle = wg; c.fillRect(0, 0, W, 220);
+    c.fillStyle = '#3a3040'; c.fillRect(0, 220, W, H - 220);
+    // 设备架
+    r.roundRect(400, 80, 120, 100, 3, '#3a3545');
+    c.fillStyle = '#4a4555';
+    c.fillRect(410, 90, 30, 20);
+    c.fillRect(410, 120, 30, 20);
+    c.fillRect(410, 150, 30, 20);
+    // 小指示灯
+    c.fillStyle = '#44cc44';
+    c.beginPath(); c.arc(450, 100, 3, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#cc4444';
+    c.beginPath(); c.arc(460, 100, 3, 0, Math.PI * 2); c.fill();
+    // 工作台
+    r.roundRect(150, 160, 220, 50, 4, '#4a3a4a');
+    r.roundRect(150, 156, 220, 8, 4, '#5a4a5a');
+    // 显示器
+    r.roundRect(180, 100, 80, 55, 3, '#222');
+    r.roundRect(183, 103, 74, 49, 1, '#3366aa');
+    c.fillRect(215, 155, 10, 5);
+    // 麦克风
+    c.fillStyle = '#555';
+    c.fillRect(320, 140, 4, 25);
+    c.beginPath(); c.arc(322, 135, 8, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#666';
+    c.beginPath(); c.arc(322, 135, 5, 0, Math.PI * 2); c.fill();
+    // 地毯
+    c.fillStyle = 'rgba(80,60,80,0.3)';
+    c.fillRect(200, 230, 160, 30);
   },
 
 };

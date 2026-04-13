@@ -24,7 +24,7 @@ def ensure_config():
     if not CONFIG_PATH.exists():
         config = {
             "agidpa_data_path": "../",
-            "backend_port": 8765,
+            "backend_port": 87659,
             "tick_interval_seconds": 300,
             "llm_provider": "deepseek",
             "llm_api_key": "",
@@ -74,7 +74,7 @@ def main():
     else:
         print("[Setup] 人物卡未创建，启动后请在设置页面完成创建")
 
-    port = config.get("backend_port", 8765)
+    port = config.get("backend_port", 8769)
     print(f"\n[Setup] 启动后端服务 (端口 {port})...")
     print(f"[Setup] 打开浏览器访问 http://127.0.0.1:{port}")
 

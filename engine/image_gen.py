@@ -128,10 +128,11 @@ _ART_STYLES = [
 ]
 
 
-def build_image_prompt(personality: dict, image_type: str = None) -> str:
+def build_image_prompt(personality: dict, image_type: str = None, simlife_context: str = None) -> str:
     """
     根据人格设定生成图片 prompt。
     image_type: "selfie" 或 "scenery"，None 时随机选
+    simlife_context: SimLife 当前状态文本（可选），会优先用当前场景作为拍照背景
     每次生成包含随机拍照动作、景别、艺术风格，避免千篇一律。
     """
     avatar = personality.get("avatar_prompt", "").strip()
@@ -162,13 +163,75 @@ def build_image_prompt(personality: dict, image_type: str = None) -> str:
     # 随机艺术风格
     art_style = rng.choice(_ART_STYLES)
 
+    # ── SimLife 场景感知：用当前场景替换随机场景 ──
+    simlife_scene_prompt = None
+    if simlife_context:
+        # 从 SimLife 上下文中提取场景关键词
+        _SIMLIFE_SCENE_MAP = {
+            "在家工作": "working at home desk, cozy room with warm lighting, laptop and books",
+            "在家办公": "working at home desk, cozy room with warm lighting, laptop and books",
+            "咖啡馆办公": "in a cozy cafe, working on laptop, coffee on table",
+            "户外工作": "outdoors with camera equipment, urban street or park setting",
+            "外出工作": "outdoors with camera equipment, urban street or park setting",
+            "工作室": "in a creative studio, equipment and monitors around",
+            "工作中": "at office desk, professional setting",
+            "开会": "in a meeting room, presenting to colleagues",
+            "午休觅食": "at a restaurant or food court, lunch time",
+            "加班": "working late at desk, office empty, dim lighting",
+            "睡觉": "sleeping peacefully in bed, soft moonlight",
+            "晨间准备": "in bathroom mirror, morning routine, getting ready",
+            "晚间放松": "on sofa at home, relaxing in the evening",
+            "周末赖床": "in bed, lazy weekend morning, sunlight through curtains",
+            "去公司": "walking on street, commuting to work, morning city",
+            "回家": "walking on street, evening commute, sunset city",
+            "咖啡馆": "sitting in a cozy cafe, warm lighting",
+            "公园": "in a beautiful park, trees and flowers around",
+            "超市": "pushing a shopping cart in a supermarket",
+            "街头闲逛": "walking on a vibrant city street, exploring",
+            "和朋友在外": "hanging out with friends, casual outdoor setting",
+        }
+        for keyword, scene_desc in _SIMLIFE_SCENE_MAP.items():
+            if keyword in simlife_context:
+                simlife_scene_prompt = scene_desc
+                break
+
+    # ── 动态穿着（从 SimLife wardrobe 读取）──
+    dynamic_outfit_en = None
+    if simlife_context:
+        _SIMLIFE_SCENE_KEYS = {
+            "在家工作": "HOME_WORKING", "在家办公": "HOME_WORKING",
+            "咖啡馆办公": "CAFE_WORKING", "户外工作": "OUTDOOR_WORKING",
+            "外出工作": "OUTDOOR_WORKING", "工作室": "STUDIO_WORKING",
+            "工作中": "OFFICE_WORKING", "开会": "OFFICE_MEETING",
+            "午休觅食": "OFFICE_LUNCH", "加班": "OVERTIME",
+            "睡觉": "HOME_SLEEPING", "晨间准备": "HOME_MORNING",
+            "晚间放松": "HOME_EVENING", "周末赖床": "HOME_WEEKEND_LAZY",
+            "去公司": "COMMUTE_TO_WORK", "回家": "COMMUTE_TO_HOME",
+            "咖啡馆": "CAFE", "公园": "PARK", "超市": "SUPERMARKET",
+            "街头闲逛": "STREET_WANDERING", "和朋友在外": "FRIEND_HANGOUT",
+        }
+        for keyword, scene_key in _SIMLIFE_SCENE_KEYS.items():
+            if keyword in simlife_context:
+                try:
+                    from engine.simlife_client import SimLifeClient
+                    _sl = SimLifeClient()
+                    ch = _sl._read_character()
+                    if ch:
+                        dynamic_outfit_en = _sl.get_outfit_en_from_wardrobe(ch, scene_key)
+                except Exception:
+                    pass
+                break
+
     if image_type == "selfie":
-        scene = rng.choice(_SELFIE_SCENES)
+        # 优先用 SimLife 当前场景，否则随机
+        scene = simlife_scene_prompt or rng.choice(_SELFIE_SCENES)
         pose = rng.choice(_SELFIE_POSES)
         shot = rng.choice(_SHOT_TYPES)
-        prompt = f"({avatar}), {pose}, {scene}, {shot}, {light}, high quality, detailed, {art_style}"
+        # avatar 后追加动态穿着
+        outfit_suffix = f", wearing {dynamic_outfit_en}" if dynamic_outfit_en else ""
+        prompt = f"({avatar}{outfit_suffix}), {pose}, {scene}, {shot}, {light}, high quality, detailed, {art_style}"
     else:
-        scene = rng.choice(_LANDSCAPE_SCENES)
+        scene = simlife_scene_prompt or rng.choice(_LANDSCAPE_SCENES)
         # 风景图的景别更偏向远景
         landscape_shots = [
             "wide panoramic shot",
@@ -226,12 +289,13 @@ def download_image(url: str, save_path: str = None) -> Optional[str]:
     return None
 
 
-def generate_and_download(personality: dict) -> Optional[Tuple[str, str, str]]:
+def generate_and_download(personality: dict, simlife_context: str = None) -> Optional[Tuple[str, str, str]]:
     """
     一站式：根据人格生成图片。
+    simlife_context: SimLife 当前状态文本（可选），拍照时用当前场景
     返回 (prompt, image_path, image_type) 或 None
     """
-    prompt, image_type = build_image_prompt(personality)
+    prompt, image_type = build_image_prompt(personality, simlife_context=simlife_context)
     url = generate_image_url(prompt)
     print(f"[图片生成] {image_type}: {prompt[:80]}...")
     image_path = download_image(url)

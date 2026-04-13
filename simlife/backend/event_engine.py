@@ -251,6 +251,54 @@ def _build_micro_templates() -> dict:
             {"id": "micro_sleep_c", "label": "被子有点薄，有点冷", "mood_delta": -2},
             {"id": "micro_sleep_d", "label": "窗外的雨声反而助眠了", "mood_delta": +1},
         ],
+        # ── 在家工作（自由职业） ──
+        "HOME_WORKING": [
+            {"id": "micro_hwork_a", "label": "在家对着电脑做了一上午", "mood_delta": +3},
+            {"id": "micro_hwork_b", "label": "穿着睡衣办公，效率出奇的高", "mood_delta": +5},
+            {"id": "micro_hwork_c", "label": "在家工作容易被猫打断，但它太可爱了", "mood_delta": +4},
+            {"id": "micro_hwork_d", "label": "不知不觉就下午两点了，都没吃午饭", "mood_delta": -2},
+            {"id": "micro_hwork_e", "label": "在家工作到一半，突然来了灵感", "mood_delta": +10},
+            {"id": "micro_hwork_f", "label": "煮了壶茶，边喝边想方案", "mood_delta": +3},
+            {"id": "micro_hwork_g", "label": "在家办公三天没出门，感觉自己快发霉了", "mood_delta": -5},
+            {"id": "micro_hwork_h", "label": "窗外阳光很好，但强迫自己坐在电脑前", "mood_delta": -2},
+            {"id": "micro_hwork_i", "label": "翻看了一下去年的作品，觉得自己进步了不少", "mood_delta": +6},
+            {"id": "micro_hwork_j", "label": "一口气完成了好几个任务，满足感爆棚", "mood_delta": +12},
+            {"id": "micro_hwork_k", "label": "在家办公的缺点是工作和生活的界限没了", "mood_delta": -3},
+            {"id": "micro_hwork_l", "label": "做了会儿拉伸，继续干活", "mood_delta": +1},
+        ],
+        # ── 咖啡馆办公（自由职业） ──
+        "CAFE_WORKING": [
+            {"id": "micro_cwork_a", "label": "在咖啡馆打开笔记本，点了杯冰美式", "mood_delta": +5},
+            {"id": "micro_cwork_b", "label": "咖啡馆的白噪音反而让人更专注", "mood_delta": +6},
+            {"id": "micro_cwork_c", "label": "旁边桌在聊创业，偷偷听了一会儿", "mood_delta": +2},
+            {"id": "micro_cwork_d", "label": "WiFi不太稳定，论文档保存了好几次", "mood_delta": -3},
+            {"id": "micro_cwork_e", "label": "坐了三小时才喝完一杯咖啡，店员没赶人", "mood_delta": +3},
+            {"id": "micro_cwork_f", "label": "灵感来了，一口气写了好几段", "mood_delta": +10},
+            {"id": "micro_cwork_g", "label": "换了个咖啡馆，环境更好，人也少", "mood_delta": +4},
+            {"id": "micro_cwork_h", "label": "认识了另一个常来的自由职业者", "mood_delta": +5},
+            {"id": "micro_cwork_i", "label": "被一杯拿铁的价格吓到了，还是自己做咖啡吧", "mood_delta": -3},
+            {"id": "micro_cwork_j", "label": "午后的阳光透过落地窗洒在键盘上", "mood_delta": +7},
+        ],
+        # ── 户外工作（自由职业） ──
+        "OUTDOOR_WORKING": [
+            {"id": "micro_owork_a", "label": "今天光线正好，拍了不少好素材", "mood_delta": +10},
+            {"id": "micro_owork_b", "label": "出门忘了带充电宝，手机快没电了", "mood_delta": -4},
+            {"id": "micro_owork_c", "label": "在户外拍了一整天，腿都走酸了", "mood_delta": -2},
+            {"id": "micro_owork_d", "label": "拍到了一个很棒的瞬间，激动了好久", "mood_delta": +15},
+            {"id": "micro_owork_e", "label": "被路过的狗吓了一跳，差点摔了相机", "mood_delta": -5},
+            {"id": "micro_owork_f", "label": "和一个受访者聊了很久，收获很大", "mood_delta": +8},
+            {"id": "micro_owork_g", "label": "天突然变了，赶紧收拾东西找地方躲雨", "mood_delta": -3},
+            {"id": "micro_owork_h", "label": "在一个新地方发现了很多创作灵感", "mood_delta": +8},
+        ],
+        # ── 工作室（自由职业） ──
+        "STUDIO_WORKING": [
+            {"id": "micro_studio_a", "label": "在工作室里调了半天设备", "mood_delta": +2},
+            {"id": "micro_studio_b", "label": "今天的录音效果特别好", "mood_delta": +8},
+            {"id": "micro_studio_c", "label": "一个人在工作室有点安静，放了点背景音乐", "mood_delta": +3},
+            {"id": "micro_studio_d", "label": "整理了一下工作室，扔了好多杂物", "mood_delta": +4},
+            {"id": "micro_studio_e", "label": "器材又出了点小问题，修了半天", "mood_delta": -5},
+            {"id": "micro_studio_f", "label": "完成了这周最重要的一个作品", "mood_delta": +12},
+        ],
     }
 
 
