@@ -27,6 +27,7 @@ yfinance>=0.2.31
 
 # Voice synthesis
 edge-tts>=6.1.0
+pyttsx3>=2.90
 
 # News extraction
 newspaper3k>=0.2.8

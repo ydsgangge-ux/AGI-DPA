@@ -30,6 +30,7 @@ def build(platform: str):
         "--hidden-import=PyQt6.QtCore",
         "--hidden-import=PyQt6.QtWidgets",
         "--hidden-import=PyQt6.QtGui",
+        "--hidden-import=PyQt6.QtMultimedia",
         "--hidden-import=sqlite3",
         "--hidden-import=keyboard",
         "--hidden-import=docx",
