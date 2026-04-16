@@ -1,6 +1,6 @@
 """
 语音合成引擎（TTS）
-优先级：edge-tts + QMediaPlayer（高质量在线）> pyttsx3（离线兜底）> 静默降级
+优先级：edge-tts（微软在线，高质量）> pyttsx3（离线兜底）> 静默降级
 
 安装：pip install edge-tts
 推荐中文声音：
@@ -16,7 +16,6 @@ import re
 import sys
 import threading
 import tempfile
-from pathlib import Path
 from typing import Optional, Callable
 
 
@@ -35,8 +34,8 @@ VOICE_OPTIONS = [
 class TTSEngine:
     """
     语音合成引擎
-    播放层：优先 QMediaPlayer（Qt 内置，精确控制），回退 winsound / 系统播放器
-    合成层：edge-tts（在线高质量）失败时自动降级 pyttsx3（离线）
+    edge-tts 生成 mp3 → winsound/系统播放器 播放
+    edge-tts 失败时自动降级到 pyttsx3（离线）
     """
 
     def __init__(self):
@@ -45,10 +44,6 @@ class TTSEngine:
         self._lock       = threading.Lock()
         self._play_thread: Optional[threading.Thread] = None
         self._stop_flag  = False
-
-        # QMediaPlayer 实例（懒初始化）
-        self._media_player = None
-        self._qapp = None
 
         # 配置
         self.voice       = "zh-CN-XiaoxiaoNeural"
@@ -88,45 +83,20 @@ class TTSEngine:
     def get_backend_name(self) -> str:
         b = self._detect_backend()
         return {
-            "edge":    "Microsoft Edge TTS + QMediaPlayer",
+            "edge":    "Microsoft Edge TTS（高质量）",
             "pyttsx3": "系统 TTS（离线兜底）",
             "none":    "未安装（pip install edge-tts）"
         }.get(b, "未知")
 
-    def _ensure_qt_player(self):
-        """懒初始化 QMediaPlayer，确保在主线程创建"""
-        if self._media_player is not None:
-            return True
-        try:
-            from PyQt6.QtCore import QUrl, QCoreApplication
-            from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-
-            # 确保 QApplication 存在
-            app = QCoreApplication.instance()
-            if app is None:
-                return False
-            self._qapp = app
-
-            self._media_player = QMediaPlayer()
-            self._audio_output = QAudioOutput()
-            self._media_player.setAudioOutput(self._audio_output)
-            self._media_player.setVolume(1.0)
-            return True
-        except Exception as e:
-            print(f"[TTS] QMediaPlayer 初始化失败: {e}")
-            return False
-
     def stop(self):
         """停止当前播放"""
         self._stop_flag = True
-        # 停止 QMediaPlayer
-        if self._media_player is not None:
+        if sys.platform == "win32":
             try:
-                from PyQt6.QtMultimedia import QMediaPlayer
-                self._media_player.stop()
+                import winsound
+                winsound.PlaySound(None, winsound.SND_PURGE)
             except Exception:
                 pass
-        # 停止 pyttsx3
         if self._pyttsx3_engine is not None:
             try:
                 self._pyttsx3_engine.stop()
@@ -137,9 +107,6 @@ class TTSEngine:
               on_error: Optional[Callable] = None):
         """
         异步朗读文本（不阻塞 UI）
-        text: 要朗读的文本
-        on_done(): 播放完成回调
-        on_error(msg): 出错回调
         """
         if not self.enabled or not text.strip():
             return
@@ -157,7 +124,6 @@ class TTSEngine:
             try:
                 if backend == "edge":
                     success = self._speak_edge(text)
-                    # edge-tts 失败时自动降级到 pyttsx3
                     if not success:
                         print("[TTS] edge-tts 失败，降级到 pyttsx3")
                         if self._pyttsx3_engine is None:
@@ -196,17 +162,12 @@ class TTSEngine:
             print(f"[TTS] pyttsx3 初始化失败: {e}")
 
     def _speak_edge(self, text: str) -> bool:
-        """
-        Edge TTS 朗读 + QMediaPlayer 播放
-        返回 True 表示成功，False 表示失败（需要降级）
-        """
-        # 清理 markdown 标记
+        """Edge TTS 合成 + 播放"""
         clean = re.sub(r'[*#`_\[\]()]', '', text)
         clean = re.sub(r'\n+', '。', clean).strip()
         if not clean:
             return False
 
-        # 写临时音频文件
         tmp = tempfile.NamedTemporaryFile(
             delete=False, suffix=".mp3", prefix="agi_tts_"
         )
@@ -214,7 +175,6 @@ class TTSEngine:
         tmp_path = tmp.name
 
         try:
-            # 1. 合成 mp3
             import edge_tts
 
             async def _synthesize():
@@ -226,7 +186,7 @@ class TTSEngine:
                 )
                 await communicate.save(tmp_path)
 
-            # 使用新的事件循环，避免冲突
+            # 独立事件循环，避免与 Qt 事件循环冲突
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
@@ -242,8 +202,8 @@ class TTSEngine:
                 os.unlink(tmp_path)
                 return False
 
-            # 2. 播放 mp3
-            return self._play_audio(tmp_path)
+            # 播放
+            return self._play_mp3(tmp_path)
 
         except Exception as e:
             print(f"[TTS] edge-tts 失败: {e}")
@@ -253,119 +213,63 @@ class TTSEngine:
                 pass
             return False
 
-    def _play_audio(self, file_path: str) -> bool:
-        """
-        播放音频文件
-        优先 QMediaPlayer，回退 winsound / 系统播放器
-        """
-        # 方案 1：QMediaPlayer（推荐）
-        if self._ensure_qt_player():
-            return self._play_with_qt(file_path)
-
-        # 方案 2：winsound（Windows）
+    def _play_mp3(self, file_path: str) -> bool:
+        """播放 mp3 文件"""
         if sys.platform == "win32":
-            return self._play_with_winsound(file_path)
-
-        # 方案 3：系统播放器
-        return self._play_with_system(file_path)
-
-    def _play_with_qt(self, file_path: str) -> bool:
-        """使用 QMediaPlayer 播放（主线程安全）"""
-        try:
-            from PyQt6.QtCore import QUrl, QEventLoop
-            from PyQt6.QtMultimedia import QMediaPlayer
-
-            finished = threading.Event()
-            error_msg = [None]
-
-            def _on_state_changed(state):
-                if state == QMediaPlayer.StoppedState:
-                    finished.set()
-                elif state == QMediaPlayer.ErrorState:
-                    error_msg[0] = str(self._media_player.errorString())
-                    finished.set()
-
-            def _on_media_status(status):
-                if status == QMediaPlayer.MediaStatus.EndOfMedia:
-                    finished.set()
-
-            # 在主线程中操作 QMediaPlayer
-            def _setup_and_play():
-                try:
-                    self._media_player.stateChanged.connect(_on_state_changed)
-                    self._media_player.mediaStatusChanged.connect(_on_media_status)
-                    self._media_player.setSource(QUrl.fromLocalFile(file_path))
-                    self._media_player.play()
-                except Exception as e:
-                    error_msg[0] = str(e)
-                    finished.set()
-
-            if self._qapp and threading.current_thread() is not self._qapp.thread():
-                # 非主线程：通过信号安全调用
-                from PyQt6.QtCore import QTimer
-                QTimer.singleShot(0, _setup_and_play)
-            else:
-                _setup_and_play()
-
-            # 等待播放完成或停止
-            finished.wait(timeout=300)  # 最多 5 分钟
-            return error_msg[0] is None
-
-        except Exception as e:
-            print(f"[TTS] QMediaPlayer 播放失败: {e}")
+            return self._play_winsound(file_path)
+        elif sys.platform == "darwin":
+            return self._play_system(file_path, ["afplay"])
+        else:
+            # Linux: 依次尝试
+            for player in ["mpg123", "ffplay", "mplayer"]:
+                if self._play_system(file_path, [player, "-q"]):
+                    return True
             return False
-        finally:
-            try:
-                os.unlink(file_path)
-            except Exception:
-                pass
 
-    def _play_with_winsound(self, file_path: str) -> bool:
-        """winsound 回退（Windows）"""
+    def _play_winsound(self, file_path: str) -> bool:
+        """Windows MCI 播放 MP3（支持任意线程，无需消息循环）"""
         try:
-            import winsound
-            winsound.PlaySound(file_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-            # 估算等待
-            try:
-                duration = self._estimate_mp3_duration(file_path)
-                if not self._stop_flag:
-                    import time as _time
-                    _time.sleep(duration)
-            except Exception:
-                pass
-            winsound.PlaySound(None, winsound.SND_PURGE)
+            import ctypes
+            mci = ctypes.windll.winmm
+            alias = "agi_tts"
+            # 关闭之前的
+            mci.mciSendStringW(f"close {alias}", None, 0, None)
+            # 打开并播放
+            short_path = os.path.abspath(file_path)
+            ret = mci.mciSendStringW(
+                f'open "{short_path}" type mpegvideo alias {alias}',
+                None, 0, None
+            )
+            if ret != 0:
+                # 取错误信息
+                buf = ctypes.create_unicode_buffer(256)
+                mci.mciGetErrorStringW(ret, buf, 256)
+                print(f"[TTS] MCI open 失败: {buf.value}")
+                return False
+            mci.mciSendStringW(f"play {alias} wait", None, 0, None)
             return True
         except Exception as e:
-            print(f"[TTS] winsound 播放失败: {e}")
+            print(f"[TTS] MCI 播放失败: {e}")
             return False
         finally:
+            try:
+                import ctypes
+                ctypes.windll.winmm.mciSendStringW(f"close agi_tts", None, 0, None)
+            except Exception:
+                pass
             try:
                 os.unlink(file_path)
             except Exception:
                 pass
 
-    def _play_with_system(self, file_path: str) -> bool:
-        """系统默认播放器回退"""
+    def _play_system(self, file_path: str, cmd: list) -> bool:
+        """用外部播放器播放"""
         try:
             import subprocess
-            if sys.platform == "darwin":
-                subprocess.run(["afplay", file_path], check=True, capture_output=True)
-            else:
-                for player in ["mpg123", "ffplay", "mplayer"]:
-                    if subprocess.run(
-                        ["which", player], capture_output=True
-                    ).returncode == 0:
-                        subprocess.run(
-                            [player, "-q", file_path], capture_output=True
-                        )
-                        break
-                else:
-                    # Windows 最后兜底
-                    if sys.platform == "win32":
-                        os.startfile(file_path)
+            subprocess.run(cmd + [file_path], check=True, capture_output=True)
             return True
         except Exception as e:
-            print(f"[TTS] 系统播放器失败: {e}")
+            print(f"[TTS] 播放器失败: {e}")
             return False
         finally:
             try:
@@ -375,7 +279,6 @@ class TTSEngine:
 
     def _speak_pyttsx3(self, text: str):
         """pyttsx3 离线朗读"""
-        import re
         clean = re.sub(r'[*#`_\[\]()]', '', text)
         clean = re.sub(r'\n+', '，', clean).strip()
         with self._lock:
@@ -385,7 +288,7 @@ class TTSEngine:
 
     @staticmethod
     def _estimate_mp3_duration(path: str) -> float:
-        """粗略估算 mp3 时长（秒）"""
+        """估算 mp3 时长（秒）"""
         try:
             size = os.path.getsize(path)
             return max(1.0, size / 16000)
@@ -396,7 +299,6 @@ class TTSEngine:
         self.voice = voice_id
 
     def set_rate(self, percent: int):
-        """percent: -50 ~ +50"""
         sign = "+" if percent >= 0 else ""
         self.rate = f"{sign}{percent}%"
 
