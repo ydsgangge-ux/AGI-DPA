@@ -144,7 +144,7 @@ class HierarchicalMemoryManager:
 
         # 细节层 — 存原始完整对话（如果提供），否则存 content
         detail_text = raw_content if raw_content else content
-        if emotion.is_strong() or importance >= 0.8:
+        if emotion.is_strong() or importance >= 0.6:
             n = MemoryNode(
                 id=f"{base_id}_detail", content=detail_text,
                 modality=modality, level=MemoryLevel.DETAIL,

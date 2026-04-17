@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from engine.models import (
-    PersonalityCore, EmotionState, EmotionType, MemoryModality
+    PersonalityCore, EmotionState, EmotionType, MemoryModality, MemoryLevel
 )
 from engine.memory import MemoryStore
 from engine.memory_manager import HierarchicalMemoryManager
@@ -302,7 +302,8 @@ class ConsciousnessAgent:
         )
 
         # ③ 推理
-        reasoning = self._reason(user_input, emotion, memory_context, task_type, profile_context)
+        reasoning = self._reason(user_input, emotion, memory_context, task_type,
+                                 profile_context, current_uid=current_uid)
         self._log("推理", reasoning.get("inner_reasoning", ""))
 
         storage_decision = reasoning.get("storage_decision", {})
@@ -386,17 +387,21 @@ class ConsciousnessAgent:
                 )
 
         # ⑤ 生成回应（带完整对话历史）
-        response = self._generate_response(
-            user_input, memory_context,
-            reasoning.get("inner_reasoning", ""),
-            reasoning.get("response_intent", ""),
-            reasoning.get("response_tone", self.personality.speech_style),
-            tool_result_section,
-            profile_context=profile_context
-        )
-        self._log("回应", response[:200] + ("..." if len(response) > 200 else ""))
+        try:
+            response = self._generate_response(
+                user_input, memory_context,
+                reasoning.get("inner_reasoning", ""),
+                reasoning.get("response_intent", ""),
+                reasoning.get("response_tone", self.personality.speech_style),
+                tool_result_section,
+                profile_context=profile_context
+            )
+            self._log("回应", response[:200] + ("..." if len(response) > 200 else ""))
+        except Exception as e:
+            self._log("回应", f"生成失败: {e}")
+            response = f"抱歉，我在组织回应时遇到了问题：{e}"
 
-        # ⑥ 存储决策
+        # ⑥ 存储决策（即使回应生成失败也要保存记忆）
         stored_ids = {}
         if is_guest:
             # 游客对话存证（标记 user_id=guest）
@@ -612,7 +617,7 @@ class ConsciousnessAgent:
         })
 
     def _reason(self, user_input, emotion, memory_context, task_type,
-                profile_context: str = "") -> Dict:
+                profile_context: str = "", current_uid: str = "default") -> Dict:
         emotion_desc = (
             f"{emotion.primary.value}（强度{emotion.intensity:.1f}，"
             f"{'正面' if emotion.valence > 0 else '负面' if emotion.valence < 0 else '中性'}）"
@@ -622,10 +627,10 @@ class ConsciousnessAgent:
         recent_context = ""
         if self.memory:
             try:
-                recent_memories = self.memory.get_recent(
+                recent_memories = self.memory.store.get_recent(
                     top_k=6,
                     level=MemoryLevel.SUMMARY,
-                    user_id=current_uid if hasattr(self, '_current_uid') else "default"
+                    user_id=current_uid
                 )
                 if recent_memories:
                     lines = [f"- {m.content[:150]}" for m in recent_memories]
