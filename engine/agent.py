@@ -161,6 +161,13 @@ class ConsciousnessAgent:
         self.current_emotion = EmotionState()
         self._verify_pending = False
 
+        # 注入 MemoryStore 到 tool 系统，供 search_memories_by_date 使用
+        try:
+            from engine.tools import set_memory_store
+            set_memory_store(memory_manager.store)
+        except Exception:
+            pass
+
     def _log(self, tag: str, content: str):
         if self.verbose:
             print(f"\n{'─'*50}")

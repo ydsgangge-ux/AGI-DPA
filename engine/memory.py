@@ -280,6 +280,32 @@ class MemoryStore:
             ).fetchall()
         return [self._row_to_node(r) for r in rows if r]
 
+    def get_by_date_range(
+        self,
+        start_date: str,
+        end_date: str,
+        level: Optional[MemoryLevel] = None,
+        user_id: Optional[str] = None,
+        top_k: int = 30,
+    ) -> List[MemoryNode]:
+        """按日期范围查询记忆（按时间倒序）"""
+        conditions = ["created_at >= ?", "created_at <= ?"]
+        params: list = [start_date, end_date]
+        if level:
+            conditions.append("level=?")
+            params.append(level.value)
+        if user_id:
+            conditions.append("user_id=?")
+            params.append(user_id)
+        where = " AND ".join(conditions)
+        with guarded_connect(self.db_path) as conn:
+            rows = conn.execute(
+                f"SELECT * FROM memories WHERE {where} "
+                f"ORDER BY created_at DESC LIMIT ?",
+                (*params, top_k)
+            ).fetchall()
+        return [self._row_to_node(r) for r in rows if r]
+
     def search_by_level(
         self, query: str, level: MemoryLevel, top_k: int = 3,
         user_id: Optional[str] = None

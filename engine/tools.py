@@ -1510,6 +1510,117 @@ def get_trending() -> Dict:
 
 
 # ═══════════════════════════════════════════════════
+# 记忆查询工具（B 层按需调用，记忆回想的兜底手段）
+# ═══════════════════════════════════════════════════
+
+def _get_memory_store():
+    """获取全局 MemoryStore 实例"""
+    try:
+        from engine.tools import _memory_store_ref
+        if _memory_store_ref:
+            return _memory_store_ref
+    except Exception:
+        pass
+    return None
+
+
+@register_tool(
+    name="search_memories_by_date",
+    description=(
+        "按日期范围搜索历史记忆。当你根据已有的记忆上下文无法回忆起"
+        "用户所问的某个时间段的对话时才使用此工具。"
+        "如果已有上下文中已经包含相关信息，不要重复查询。"
+        "日期格式：YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS"
+    ),
+    parameters={
+        "start_date": {"type": "string",
+                       "description": "开始日期，格式 YYYY-MM-DD", "required": True},
+        "end_date":   {"type": "string",
+                       "description": "结束日期，格式 YYYY-MM-DD", "required": True},
+        "level":      {"type": "string",
+                       "description": "记忆层级：summary(大纲)/outline(细纲)/detail(细节)，默认 summary"},
+        "top_k":      {"type": "integer",
+                       "description": "最大返回条数，默认 30"},
+    },
+    risk="low"
+)
+def search_memories_by_date(
+    start_date: str, end_date: str, level: str = "summary", top_k: int = 30
+) -> Dict:
+    try:
+        from engine.models import MemoryLevel
+        from engine.memory import MemoryStore
+
+        store = _get_memory_store()
+        if not store:
+            # 尝试通过 db_path 直接创建
+            try:
+                from desktop.config import DB_FILE
+                db_path = DB_FILE
+            except Exception:
+                import os
+                db_path = os.path.join(
+                    os.environ.get("APPDATA", str(Path.home())),
+                    "AGI-Desktop", "memory.db"
+                ) if os.name == "nt" else str(
+                    Path.home() / "Desktop" / ".agi-desktop" / "memory.db"
+                )
+            store = MemoryStore(db_path)
+
+        level_map = {
+            "summary": MemoryLevel.SUMMARY,
+            "outline": MemoryLevel.OUTLINE,
+            "detail":  MemoryLevel.DETAIL,
+        }
+        mem_level = level_map.get(level, MemoryLevel.SUMMARY)
+
+        # 补全时间：纯日期自动补 00:00:00 / 23:59:59
+        if len(start_date) == 10:
+            start_date += "T00:00:00"
+        if len(end_date) == 10:
+            end_date += "T23:59:59"
+
+        nodes = store.get_by_date_range(
+            start_date=start_date,
+            end_date=end_date,
+            level=mem_level,
+            top_k=top_k,
+        )
+
+        if not nodes:
+            return {"ok": True, "count": 0, "memories": [],
+                    "hint": f"在 {start_date[:10]} ~ {end_date[:10]} 之间没有找到记忆记录"}
+
+        items = []
+        for n in nodes:
+            items.append({
+                "date": n.created_at[:16] if n.created_at else "",
+                "content": n.content[:300],
+                "importance": n.importance,
+                "emotion": n.emotion.primary.value if n.emotion else "",
+            })
+
+        return {
+            "ok": True,
+            "count": len(items),
+            "date_range": f"{start_date[:10]} ~ {end_date[:10]}",
+            "memories": items,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+# 全局引用：外部注入 MemoryStore 实例
+_memory_store_ref = None
+
+
+def set_memory_store(store):
+    """由 agent 启动时调用，注入 MemoryStore 实例"""
+    global _memory_store_ref
+    _memory_store_ref = store
+
+
+# ═══════════════════════════════════════════════════
 # 工具执行入口
 # ═══════════════════════════════════════════════════
 
