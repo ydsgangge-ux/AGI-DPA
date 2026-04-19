@@ -40,6 +40,9 @@ from simlife.backend.npc_engine import load_npc_cards, get_active_npcs
 from simlife.backend.agidpa_reader import AGIDPAReader
 from simlife.backend.weather import WeatherService
 from simlife.backend.world_engine import get_holiday_info, get_festive_log_entry
+from simlife.backend.birthday_engine import (
+    check_birthdays_today, get_birthday_mood,
+)
 
 # ── 全局状态 ───────────────────────────────────────────
 character_card: Optional[CharacterCard] = None
@@ -127,6 +130,14 @@ def _tick():
         if festive_log:
             world_state.today_log.append(LogEntry(
                 time="09:00", event=festive_log
+            ))
+
+        # 新的一天检查生日
+        char_bd = character_card.basic.birth_date if character_card.basic.birth_date else ""
+        birthday_results = check_birthdays_today(char_bd, load_npc_cards())
+        for br in birthday_results:
+            world_state.today_log.append(LogEntry(
+                time="09:00", event=br["log"]
             ))
 
     # 离线补算
@@ -252,8 +263,19 @@ def _tick():
     from simlife.backend.holiday_calendar import get_holiday_mood_delta
     holiday_mood_delta = get_holiday_mood_delta(now.date())
 
+    # 生日心情修正
+    birthday_mood_delta = get_birthday_mood(char_bd) if char_bd else 0
+    if birthday_mood_delta == 0:
+        # 检查NPC生日
+        for npc in load_npc_cards():
+            npc_bd = npc.get("birth_date", "")
+            npc_mood = get_birthday_mood(npc_bd)
+            if npc_mood > 0:
+                birthday_mood_delta += npc_mood // 3  # NPC生日对主角心情影响较小
+
     mood_deltas.append(weather_mood_delta)
     mood_deltas.append(holiday_mood_delta)
+    mood_deltas.append(birthday_mood_delta)
 
     world_state.mood = calculate_mood(
         scene=scene.value,
@@ -300,6 +322,20 @@ def api_world_state():
     # 节假日信息
     holiday_info = get_holiday_info()
 
+    # 生日信息
+    birthday_info = None
+    char_bd = character_card.basic.birth_date if character_card.basic.birth_date else ""
+    if char_bd:
+        from simlife.backend.birthday_engine import get_birthday_mood
+        if get_birthday_mood(char_bd) > 0:
+            birthday_info = {
+                "is_self": True,
+                "zodiac": character_card.basic.zodiac or "",
+            }
+    # 即将到来的生日
+    from simlife.backend.birthday_engine import get_upcoming_birthdays
+    upcoming_birthdays = get_upcoming_birthdays(char_bd, load_npc_cards(), days=14)
+
     return {
         "scene": world_state.current_scene,
         "scene_label": SCENE_LABELS.get(
@@ -316,6 +352,8 @@ def api_world_state():
         ],
         "weather": weather_data,
         "holiday": holiday_info,
+        "birthday": birthday_info,
+        "upcoming_birthdays": upcoming_birthdays,
     }
 
 

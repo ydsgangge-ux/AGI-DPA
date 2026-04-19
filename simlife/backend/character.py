@@ -128,6 +128,8 @@ class LifeGoal(BaseModel):
 class BasicInfo(BaseModel):
     name: str = ""
     age: int = 24
+    birth_date: str = ""          # 格式 "YYYY-MM-DD"，由 birthday_engine 根据性格匹配星座后生成
+    zodiac: str = ""              # 星座名称（中文），如 "双鱼座"
     city: str = "上海"
     district: str = "静安区"
     occupation: str = "UI设计师"
@@ -261,6 +263,7 @@ class NPCCard(BaseModel):
     relation: str = "同事"
     name: str = ""
     age: int = 25
+    birth_date: str = ""          # 格式 "YYYY-MM-DD"
     occupation: str = ""
     personality_word: str = ""
     contact_frequency: str = ""

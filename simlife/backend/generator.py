@@ -113,6 +113,12 @@ def generate_character_card(anchor: dict, agidpa_personality: dict = None) -> di
         # 兼容旧数据：通勤信息
         if work_style in ("freelance", "remote") and "commute" not in card:
             card["commute"] = {"method": "", "line": "", "duration_minutes": 0}
+        # ── 自动生成生日：性格→星座→随机日期 ──
+        if "birth_date" not in card.get("basic", {}) or not card["basic"].get("birth_date"):
+            from .birthday_engine import auto_generate_birthday
+            bd_info = auto_generate_birthday(personality, age)
+            card["basic"]["birth_date"] = bd_info["birth_date"]
+            card["basic"]["zodiac"] = bd_info["zodiac"]
         return card
     except Exception as e:
         print(f"[SimLife] 人物卡生成失败: {e}")
@@ -430,12 +436,12 @@ def generate_npc_cards(character_card: dict) -> list:
     work_style = character_card.get("basic", {}).get("work_style", "office")
 
     if work_style == "freelance":
-        prompt = f"""为主角"{name}"生成一个真实的人际圈。
+        prompt = f"""为主角"{name}"生成一个丰富真实的人际圈。
 
 主角信息：{age}岁，{occupation}（自由职业者），住在{city}{district}。
 自由职业者的人际圈不同于上班族，通常有客户、合作者、同行朋友等。
 
-请生成以下NPC，返回JSON数组：
+请生成以下NPC，返回JSON数组（必须包含所有角色）：
 [
   {{
     "id": "npc_bestfriend",
@@ -443,7 +449,7 @@ def generate_npc_cards(character_card: dict) -> list:
     "name": "一个{city}常见名字",
     "age": 25,
     "occupation": "合理的职业（可以是其他自由职业者）",
-    "personality_word": "性格词",
+    "personality_word": "性格词（如开朗、细腻等）",
     "contact_frequency": "见面频率",
     "appear_scenes": ["CAFE", "STREET_WANDERING", "PARK", "FRIEND_HANGOUT", "CAFE_WORKING"],
     "event_pool": ["invite_hangout", "share_good_news"],
@@ -477,31 +483,67 @@ def generate_npc_cards(character_card: dict) -> list:
     "id": "npc_mom",
     "relation": "妈妈",
     "name": "不显示",
-    "age": 52,
+    "age": {age + random.randint(25, 32)},
     "occupation": "",
     "personality_word": "关心",
     "contact_frequency": "每周视频",
     "appear_scenes": [],
     "event_pool": ["video_call", "send_recipe"],
     "pixel_variant": null
+  }},
+  {{
+    "id": "npc_dad",
+    "relation": "爸爸",
+    "name": "不显示",
+    "age": {age + random.randint(27, 34)},
+    "occupation": "",
+    "personality_word": "沉稳内敛",
+    "contact_frequency": "偶尔视频",
+    "appear_scenes": [],
+    "event_pool": ["video_call", "send_money"],
+    "pixel_variant": null
+  }},
+  {{
+    "id": "npc_roommate",
+    "relation": "大学室友",
+    "name": "一个{city}常见名字",
+    "age": {age},
+    "occupation": "合理职业",
+    "personality_word": "活泼古怪",
+    "contact_frequency": "每月见面",
+    "appear_scenes": ["CAFE", "FRIEND_HANGOUT", "STREET_WANDERING"],
+    "event_pool": ["invite_hangout", "share_good_news", "catch_up"],
+    "pixel_variant": "npc_f_03"
+  }},
+  {{
+    "id": "npc_neighbor",
+    "relation": "邻居",
+    "name": "一个常见名字",
+    "age": {age + random.randint(0, 3)},
+    "occupation": "合理的职业",
+    "personality_word": "佛系随和",
+    "contact_frequency": "偶尔碰面",
+    "appear_scenes": ["HOME_MORNING", "HOME_EVENING", "STREET_WANDERING"],
+    "event_pool": ["borrow_thing", "share_good_news"],
+    "pixel_variant": "npc_f_04"
   }}
 ]
 
-只返回JSON数组，不要其他内容。人名使用{city}常见名字风格。"""
+只返回JSON数组，不要其他内容。人名使用{city}常见名字风格。age 可以适当微调（±2岁）。"""
     else:
-        prompt = f"""为主角"{name}"生成一个真实的人际圈。
+        prompt = f"""为主角"{name}"生成一个丰富真实的人际圈。
 
 主角信息：{age}岁，{occupation}，住在{city}{district}。
 
-请生成以下NPC，返回JSON数组：
+请生成以下NPC，返回JSON数组（必须包含所有角色）：
 [
   {{
     "id": "npc_bestfriend",
     "relation": "好友",
     "name": "一个{city}常见名字",
-    "age": 25,
+    "age": {age + random.randint(1, 5)},
     "occupation": "合理的职业",
-    "personality_word": "性格词",
+    "personality_word": "性格词（如开朗、细腻等）",
     "contact_frequency": "见面频率",
     "appear_scenes": ["CAFE", "STREET_WANDERING", "PARK", "FRIEND_HANGOUT"],
     "event_pool": ["invite_hangout", "share_good_news"],
@@ -511,7 +553,7 @@ def generate_npc_cards(character_card: dict) -> list:
     "id": "npc_colleague_a",
     "relation": "同事",
     "name": "一个常见名字",
-    "age": 26,
+    "age": {age + random.randint(2, 6)},
     "occupation": "同公司",
     "personality_word": "性格词",
     "contact_frequency": "每天见面",
@@ -523,7 +565,7 @@ def generate_npc_cards(character_card: dict) -> list:
     "id": "npc_colleague_b",
     "relation": "同事",
     "name": "一个常见名字",
-    "age": 28,
+    "age": {age + random.randint(3, 8)},
     "occupation": "同公司",
     "personality_word": "性格词",
     "contact_frequency": "每天见面",
@@ -535,17 +577,65 @@ def generate_npc_cards(character_card: dict) -> list:
     "id": "npc_mom",
     "relation": "妈妈",
     "name": "不显示",
-    "age": 52,
+    "age": {age + random.randint(25, 32)},
     "occupation": "",
     "personality_word": "关心",
     "contact_frequency": "每周视频",
     "appear_scenes": [],
     "event_pool": ["video_call", "send_recipe"],
     "pixel_variant": null
+  }},
+  {{
+    "id": "npc_dad",
+    "relation": "爸爸",
+    "name": "不显示",
+    "age": {age + random.randint(27, 34)},
+    "occupation": "",
+    "personality_word": "沉稳内敛",
+    "contact_frequency": "偶尔视频",
+    "appear_scenes": [],
+    "event_pool": ["video_call", "send_money"],
+    "pixel_variant": null
+  }},
+  {{
+    "id": "npc_roommate",
+    "relation": "大学室友",
+    "name": "一个{city}常见名字",
+    "age": {age},
+    "occupation": "合理职业",
+    "personality_word": "活泼古怪",
+    "contact_frequency": "每月见面",
+    "appear_scenes": ["CAFE", "FRIEND_HANGOUT", "STREET_WANDERING"],
+    "event_pool": ["invite_hangout", "share_good_news", "catch_up"],
+    "pixel_variant": "npc_f_03"
+  }},
+  {{
+    "id": "npc_boss",
+    "relation": "直属上司",
+    "name": "一个常见名字",
+    "age": {age + random.randint(8, 14)},
+    "occupation": "合理的职位",
+    "personality_word": "干练严厉",
+    "contact_frequency": "每天见面",
+    "appear_scenes": ["OFFICE_WORKING", "OFFICE_MEETING"],
+    "event_pool": ["extra_task_from_boss", "praise_from_boss"],
+    "pixel_variant": "npc_m_02"
+  }},
+  {{
+    "id": "npc_neighbor",
+    "relation": "邻居",
+    "name": "一个常见名字",
+    "age": {age + random.randint(0, 3)},
+    "occupation": "合理的职业",
+    "personality_word": "佛系随和",
+    "contact_frequency": "偶尔碰面",
+    "appear_scenes": ["HOME_MORNING", "HOME_EVENING", "STREET_WANDERING"],
+    "event_pool": ["borrow_thing", "share_good_news"],
+    "pixel_variant": "npc_f_04"
   }}
 ]
 
-只返回JSON数组，不要其他内容。人名使用{city}常见名字风格。"""
+只返回JSON数组，不要其他内容。人名使用{city}常见名字风格。age 可以适当微调（±2岁）。"""
 
     try:
         response = llm.generate(prompt, max_tokens=1500, temperature=0.8)
@@ -557,6 +647,14 @@ def generate_npc_cards(character_card: dict) -> list:
                 response = response[:-3]
             response = response.strip()
         npcs = json.loads(response)
+        # ── 自动为每个 NPC 补充生日 ──
+        from .birthday_engine import auto_generate_birthday
+        for npc in npcs:
+            if not npc.get("birth_date"):
+                personality = npc.get("personality_word", "")
+                npc_age = npc.get("age", age + 2)
+                bd_info = auto_generate_birthday(personality, npc_age)
+                npc["birth_date"] = bd_info["birth_date"]
         return npcs
     except Exception as e:
         print(f"[SimLife] NPC生成失败: {e}")
