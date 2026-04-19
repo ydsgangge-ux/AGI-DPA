@@ -113,6 +113,7 @@ def _tick():
 
     now = datetime.now()
     today = now.strftime("%Y-%m-%d")
+    char_bd = character_card.basic.birth_date if character_card.basic.birth_date else ""
 
     # 新的一天，重置
     if world_state.today_date != today:
@@ -133,7 +134,6 @@ def _tick():
             ))
 
         # 新的一天检查生日
-        char_bd = character_card.basic.birth_date if character_card.basic.birth_date else ""
         birthday_results = check_birthdays_today(char_bd, load_npc_cards())
         for br in birthday_results:
             world_state.today_log.append(LogEntry(
